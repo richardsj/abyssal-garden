@@ -1,5 +1,11 @@
 # Abyssal Garden
 
+A variation on [Noniv/abyssal-garden](https://github.com/Noniv/abyssal-garden), the original dreamy underwater scene
+built from a single prompt. This version was built with an agent-critic pattern: a coding agent (Claude) made the
+changes, then a separate agent with no access to the code or the author's reasoning judged only the rendered images,
+in repeated rounds, until it stopped finding major defects. Play it at
+[richardsj.github.io/abyssal-garden](https://richardsj.github.io/abyssal-garden/).
+
 **A dreamy underwater world you can swim through, right in your browser.**
 
 Towering kelp forests, sunbeams pouring through a rippling surface, a sunken ship, manta rays gliding overhead, bait balls swirling as hunters cut through them, clownfish in their anemones.
