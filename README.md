@@ -94,6 +94,8 @@ This writes a new `index.html` next to this README. `npm run build:readable` wri
 
 `npm run build:dev` writes a separate `dev.html` with two extra tools that are not part of `index.html`: `F` flies the camera along a one-minute path through the whole world, and `B` runs that flight as a benchmark and reports frame and GPU times. The same tools can be driven from the address bar (`dev.html?pose=3&time=20`, `?fly=12.5`, `?bench=1`) or from the console through `window.dev`.
 
+`npm run build:bench` writes the same build as `bench.html`, which is committed so anyone can measure their own machine without a keyboard: open `bench.html?bench=1` (for example [richardsj.github.io/abyssal-garden/bench.html?bench=1](https://richardsj.github.io/abyssal-garden/bench.html?bench=1)), wait about 65 seconds, and the frame and GPU times appear in the top-left corner.
+
 | File | What's inside |
 |---|---|
 | [`source/src/world.js`](source/src/world.js) | The world layout: rock walls, arches, tunnels, kelp forests, sponge gardens, fish schools, mantas, the ship and the whale tail. **A good place to start.** |
