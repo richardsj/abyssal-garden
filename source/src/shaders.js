@@ -629,6 +629,9 @@ fn fpos(a: vec4f, b: vec4f, c: vec4f, t: f32) -> vec3f {
       let d = p - hunter(a, b.w, f32(k), t + .35); let l = length(d); let ro = R * .75;
       p += d / max(l, .01) * (ro * 1.1 * exp(-l * l / (ro * ro)));
     }
+    // the viewer is a hunter in miniature: the same peak push as a hunter's but only .3 of its reach, so fish ignore
+    // a diver until it gets close, then clear out. g.cam is fixed for the frame, so the t +/- .1 headings still come out right.
+    { let dv = p - g.cam.xyz; let lv = length(dv); let rh = R * .75; let rv = rh * .3; p += dv / max(lv, .01) * (rh * 1.1 * exp(-lv * lv / (rv * rv))); }
     return p;
   }
   if (c.y < 3.5) { // hunter c.z of its ball; followers (c.w > 0) trail the leader
@@ -642,8 +645,9 @@ fn fpos(a: vec4f, b: vec4f, c: vec4f, t: f32) -> vec3f {
   var o: FO;
   let s = i.b.x; let t = g.cam.w; let bh = i.c.y;
   var P = fpos(i.a, i.b, i.c, t);
-  // fish keep their distance from the camera (further for big fish), so none fills the view or gets cut by it
-  { let dc = P - g.cam.xyz; let dl = length(dc); P += dc / max(dl, .01) * max(1.2 + 2.6 * i.b.z - dl, 0.); }
+  // fish keep their distance from the camera (further for big fish), so none fills the view or gets cut by it;
+  // bait fish are small and may come within 1 m, the viewer push in fpos() having cleared most of them away by then
+  { let dc = P - g.cam.xyz; let dl = length(dc); let md = select(1.2 + 2.6 * i.b.z, 1., bh > 1.5 && bh < 2.5); P += dc / max(dl, .01) * max(md - dl, 0.); }
   var v = (fpos(i.a, i.b, i.c, t + .1) - fpos(i.a, i.b, i.c, t - .1)) * 5.;
   let sp = min(length(v), 5.);
   // hovering fish face into the current
