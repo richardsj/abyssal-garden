@@ -281,7 +281,6 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
   var sc = i.a.w;
   if (i.c.x < 1.5 && i.c.z > 1.5 && g.res.x > 0.) { sc *= 1. - ss(i.c.z * .7, i.c.z, distance(i.a.xyz, g.cam.xyz) / g.mis.z); }
   var w = i.a.xyz + qrot(i.b, i.p * sc);
-  w.y += sin(g.cam.w * .3 + i.c.y * 40.) * i.c.w;
   if (abs(i.c.x - 6.) < .5) { // soft coral bends with the current, more toward its tips
     let h = i.p.y * sc; let ph = dot(i.a.xz, vec2f(.9, .6)) + i.c.y * 6.;
     w += vec3f(.8, 0., .6) * (sin(g.cam.w * .8 + ph + h * .7) * .07 * h * h) + vec3f(-.6, 0., .8) * (cos(g.cam.w * .63 + ph * 1.3 + h) * .04 * h * h);

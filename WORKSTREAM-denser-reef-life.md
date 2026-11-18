@@ -16,6 +16,8 @@ More corals, more anemones, more fish, less barren rock. The frame rate is an as
 | Scope | Density first, using the kinds of life that already exist. New kinds come afterwards. |
 | Verification | Each phase: before/after stills, benchmark, and the owner's own look. One blind critic round (an agent that sees only the renders) at the end. |
 | Home | This branch plus this file. A phase is merged to `main`, and so to the live site, only when approved. |
+| Floating rocks | Removed (owner, 2026-11-18): "a strange aberration ... a little immersion breaking". This overrides the original brief (`prompt.txt` lists floating boulders). Boulders resting on the seabed stay. |
+| Waves | The owner wants the surface waves to look more "cool"/realistic. Not yet scoped. |
 
 Note on the frame budget: in the last quiet-machine runs the 99th percentile was about 1.4 times the average
 (8.5 ms average, 12.3 ms 99th percentile). So once the average passes roughly 11.5-12 ms, about 1 frame in 100
@@ -112,3 +114,17 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
   0 of 225 large boulders (87 floating, 138 resting) have anything on them; GPU 7.9-8.0 ms average, 10.6-10.8 ms
   99th percentile. Corals cost about ten times a sponge in triangles; shadows are baked once, so more props cost
   only when on screen. Tooling: `dev.html?census=1` + `dev.census()`, scripts in `_scratch/`. Next: phase 1.
+- 2026-11-18: phase 1 built and measured, NOT yet approved or committed. Report:
+  `test-probe-steps/20261118_1120-denser-reef-phase-1-rock-cover/REPORT.md`. Rock with no reef life within 2 m
+  63.8% -> 29.3%, with nothing at all 31.8% -> 12.2% (walls 46.8% -> 16.2%); all 225 large boulders planted, growth
+  rides the bob; GPU 8.3-9.0 ms average (baseline 7.9-8.0); `index.html` +3,895 bytes. Existing layout unmoved.
+  Open points: sponges are 3.6 times as many and blocky up close; no tentacle life on floating rock; rock chunks
+  not planted; rock closest to the flight still bare at seconds 9 and 55-56.
+- 2026-11-18: correction. The owner's remark about floating rocks in viewpoints 3 and 5 meant "these should not be
+  there", not "these are bare"; decorating them was a misreading. Floating boulder clusters removed from
+  `world.js` (random seed 8 unused), the bob line removed from the solid shader, the growth-on-boulders code cut
+  down to resting boulders. Folder: `test-probe-steps/20261118_1150-denser-reef-floating-rocks-removed/`.
+  The phase 0 and phase 1 notes above about floating rock and bob are history, not current.
+- 2026-11-18: benchmark method. The reading depends on how much of the browser window is on screen (a run during
+  which the owner resized the window to fit the screen read 17 ms against 8-9 ms). Keep the window as it is for
+  every run of a comparison and record it; do not compare runs across a resize.

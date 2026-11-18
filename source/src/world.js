@@ -138,7 +138,7 @@ function makeWorld(D, T, flyPts, POSES) {
   let nth = 0;
   const leaf = (L, x, y, z, len, yaw, tilt, wid, hA, type, s1, s2, bend) => { if (type === 1 || !(nth++ % THIN)) L[cellOf(x, z)].push(x, y, z, len, yaw, tilt, type === 1 ? wid : wid * (1 + LV / 2), hA, type, s1, s2, bend); };
   const glint = (...a) => { nth++ % THIN || glints.push(...a); };
-  const solids = []; // per mesh id: arrays of 12 floats
+  const solids = []; // per mesh id: arrays of 12 floats (the last, `bob`, moved the floating boulders and is now unused)
   const props = PROPM.map(() => Array.from({ length: nCells }, () => []));
   const solid = (mesh, x, y, z, sc, q, mat, seed, ts = 1, bob = 0) => { const pi = PROPM.indexOf(mesh); (pi >= 0 ? props[pi][cellOf(x, z)] : (solids[mesh] ||= [])).push(x, y, z, sc, q[0], q[1], q[2], q[3], mat, seed, ts, bob); };
   const chunks = Array.from({ length: NCHUNK }, () => Array.from({ length: nCells }, () => []));
@@ -315,18 +315,8 @@ function makeWorld(D, T, flyPts, POSES) {
       solid(coral ? 7 + (rnd() * 3 | 0) : 4 + (rnd() * 3 | 0), x - nx / l * 0.1 * sc, y - ny / l * 0.1 * sc, z - nz / l * 0.1 * sc, sc, qMul(qFromY(nx / l, ny / l, nz / l), qAxis(0, 1, 0, rnd() * TAU)), coral ? 5 : 4, rnd(), 1, 0);
     }
   }
-  // --- rocks: floating boulder clusters + scattered ground rocks
-  const BOULD = [[-11, -11, -105, 14, 5], [-56, -19, -18, 18, 6], [10, -13, -88, 22, 7], [24, -15, -24, 22, 7], [-18, -12, 4, 14, 6], [30, -14, 30, 16, 6], [36, -12, -70, 22, 8], [-30, -13, -84, 16, 7], [-58, -14, 0, 14, 6], [19, -13, 98, 18, 6], [62, -9, 34, 14, 6]];
-  rseed(8);
-  for (let i = 0; i < 9; i++) { const a = rnd() * TAU, r = rr(60, 150); BOULD.push([cos(a) * r, rr(-20, -9), sin(a) * r, 10 + rnd() * 12 | 0, rr(5, 9)]); }
-  for (const b of BOULD) for (let i = 0; i < b[3]; i++) {
-    const sc = rnd() < 0.12 ? rr(1.8, 3.2) : rr(0.35, 1.5);
-    const x = b[0] + rr(-1, 1) * b[4], y = b[1] + rr(-1, 1) * b[4] * 0.6, z = b[2] + rr(-1, 1) * b[4];
-    if (Dw(x, y, z) > -sc || nearFly(x, min(y, -2 - sc), z, sc + 4.5)) continue;
-    const bob = rr(0.12, 0.4), sd = rnd();
-    solid(rnd() * 4 | 0, x, min(y, -2 - sc), z, sc, qRand(), 1, sd, 1, bob);
-    if (sc > 1.1) for (let j = 0; j < 7; j++) solid(rnd() * 4 | 0, x + rr(-1.6, 1.6) * sc, min(y, -2 - sc) + rr(-1.4, 1) * sc, z + rr(-1.6, 1.6) * sc, rr(0.1, 0.35), qRand(), 1, sd, 1, bob);
-  }
+  // --- rocks: boulders resting on the seabed. (The floating boulder clusters of the original scene were removed on
+  // 2026-11-18: they broke the immersion. Random seed 8 was theirs and is no longer used.)
   rseed(9);
   for (let i = 0; i < 2600; i++) {
     const k = pickV(), sc = rr(0.25, 1.3) * (rnd() < 0.1 ? 2 : 1); if (T.wn[k + 1] < 0.7 || hypot(T.wp[k], T.wp[k + 2]) > 170 || nearFly(T.wp[k], T.wp[k + 1], T.wp[k + 2], 6 + sc * 2)) continue;
@@ -453,6 +443,95 @@ function makeWorld(D, T, flyPts, POSES) {
       }
     }
   }
+  // --- denser reef life, phase 1 (WORKSTREAM-denser-reef-life.md): cover for bare rock. Added after the layout above
+  // with its own random seeds, so nothing that was already placed moves.
+  // rock / tent: candidate spots on the terrain for sponge and coral clusters / for sea whips and polyp carpets;
+  // perM2: pieces per square metre of boulder
+  const GROW = { rock: 26000, tent: 700, perM2: 0.95 };
+  const grown = { sponges: 0, corals: 0, whips: 0, polyps: 0, onBoulders: 0, bouldersPlanted: 0, bigBouldersPlanted: 0 };
+  {
+    const nPath = flyPts.length - POSES.length;
+    // closer than r to the scripted flight (a true distance, where nearFly clears a 13 m column), or beside a viewpoint
+    const nearPath = (x, y, z, r) => { for (let i = 0; i < nPath; i++) { const p = flyPts[i], dx = x - p[0], dy = y - p[1], dz = z - p[2]; if (dx * dx + dy * dy + dz * dz < r * r) return true; } return nearPose(x, z, 2.5); };
+    // one piece per 0.7 m cube, counting what is already there, so new growth does not land inside old
+    const occ = new Set(), okey = (x, y, z) => floor(x / 0.7) + 1024 + 2048 * (floor(y / 0.7) + 1024 + 2048 * (floor(z / 0.7) + 1024));
+    for (const P of props) for (const c of P) for (let i = 0; i < c.length; i += 12) occ.add(okey(c[i], c[i + 1], c[i + 2]));
+    const free = (x, y, z) => { const k = okey(x, y, z); if (occ.has(k)) return false; occ.add(k); return true; };
+    let nth2 = 0; const thin = () => !(nth2++ % THIN); // Medium and Low keep every 2nd / 4th cluster
+    // A sponge (about 300 triangles) or coral (about 2000) rooted at p, growing along u. Sponges keep further from the
+    // flight than corals: up close they are the blockier shape.
+    const piece = (coral, p, u, sc, seed) => {
+      if (nearPath(p[0], p[1], p[2], (coral ? 2.2 : 3.5) + sc) || !free(p[0], p[1], p[2])) return false;
+      solid(coral ? 7 + (rnd() * 3 | 0) : 4 + (rnd() * 3 | 0), p[0] - u[0] * 0.1 * sc, p[1] - u[1] * 0.1 * sc, p[2] - u[2] * 0.1 * sc, sc, qMul(qFromY(u[0], u[1], u[2]), qAxis(0, 1, 0, rnd() * TAU)), coral ? 5 : 4, seed, 1, 0);
+      grown[coral ? 'corals' : 'sponges']++; return true;
+    };
+    // terrain: floors already carry plants, so most of the new cover goes to walls and overhangs, in patches rather
+    // than evenly. Overhangs get sponges only, hanging along the rock's normal.
+    rseed(17);
+    for (let i = 0; i < GROW.rock; i++) {
+      const k = pickV(), x = T.wp[k], y = T.wp[k + 1], z = T.wp[k + 2], ny = T.wn[k + 1];
+      if (hypot(x, z) > 170 || y > -8) continue;
+      if (rnd() > (ny > 0.5 ? 0.3 : 1) * (0.25 + 0.75 * sstep(0.38, 0.6, fbm(x * 0.07, y * 0.07, z * 0.07, 2))) || !thin()) continue;
+      const n0 = [T.wn[k], ny, T.wn[k + 2]], [t1, t2] = tangent(n0), hang = ny < -0.3, coral = !hang && rnd() < (ny > 0.5 ? 0.45 : 0.2), cnt = coral ? 1 + rnd() * 3 | 0 : 3 + rnd() * 6 | 0, sd = rnd();
+      for (let j = 0; j < cnt; j++) {
+        const a = rr(-1, 1) * (0.5 + cnt * 0.13), b = rr(-1, 1) * (0.5 + cnt * 0.13);
+        const s = snap(x + t1[0] * a + t2[0] * b, y + t1[1] * a + t2[1] * b, z + t1[2] * a + t2[2] * b, n0);
+        if (!s) continue;
+        let ux = s[3], uy = s[4] + (hang ? 0.2 : 1), uz = s[5]; const l = hypot(ux, uy, uz) || 1;
+        piece(coral, s, [ux / l, uy / l, uz / l], coral ? rr(0.5, 1.3) : rr(0.3, 0.85) * (rnd() < 0.1 ? 1.6 : 1), fract(sd + rr(-0.03, 0.03)));
+      }
+    }
+    // more sea whips (one spot in three) and polyp carpets, the carpets now on walls as well as floors
+    rseed(18);
+    for (let i = 0; i < GROW.tent; i++) {
+      const k = pickV(), x = T.wp[k], y = T.wp[k + 1], z = T.wp[k + 2];
+      if (hypot(x, z) > 165 || y > -12 || T.wn[k + 1] < -0.2 || !thin() || nearPath(x, y, z, i % 3 ? 2 : 4)) continue;
+      const n0 = [T.wn[k], T.wn[k + 1], T.wn[k + 2]], [t1, t2] = tangent(n0), col = rnd(), ph = rnd();
+      if (!(i % 3)) {
+        for (let j = 0, n = 4 + rnd() * 7 | 0; j < n; j++) {
+          const a = rr(-0.5, 0.5), b = rr(-0.5, 0.5), s = snap(x + t1[0] * a + t2[0] * b, y + t1[1] * a + t2[1] * b, z + t1[2] * a + t2[2] * b, n0); if (!s) continue;
+          let dx = s[3] * 0.5 + rr(-0.25, 0.25), dy = abs(s[4]) * 0.5 + 1, dz = s[5] * 0.5 + rr(-0.25, 0.25); const dl = hypot(dx, dy, dz);
+          tentacle(s[0], s[1] - 0.03, s[2], rr(1.2, 3.4), [dx / dl, dy / dl, dz / dl], rr(0.02, 0.032) * (LV ? 1.5 : 1), 2, rnd(), col, ph); grown.whips++;
+        }
+      } else {
+        for (let j = 0, n = (25 + rnd() * 35 | 0) >> LV; j < n; j++) {
+          const a = rr(-1, 1) * 0.9, b = rr(-1, 1) * 0.9, s = snap(x + t1[0] * a + t2[0] * b, y + t1[1] * a + t2[1] * b, z + t1[2] * a + t2[2] * b, n0); if (!s) continue;
+          const len = rr(0.16, 0.3), o = rnd(), pp = ph + (a + b) * 0.08; grown.polyps++;
+          for (let m = 0; m < 8; m++) tentacle(s[0], s[1], s[2], len, [s[3], s[4], s[5]], 0.016 * (LV ? 1.5 : 1), 1, (m + o) / 8, col, pp);
+        }
+      }
+    }
+    // Loose rock: sponges and corals on the boulders resting on the seabed, rooted at vertices of the boulder's own mesh
+    const BM = [1, 7, 13, 22].map((sd) => {
+      const m = meshChunk(sd, 3), p = m.p, n = new Float32Array(p.length);
+      for (let t = 0; t < m.i.length; t += 3) {
+        const a = m.i[t] * 3, b = m.i[t + 1] * 3, c = m.i[t + 2] * 3, ex = p[b] - p[a], ey = p[b + 1] - p[a + 1], ez = p[b + 2] - p[a + 2], fx = p[c] - p[a], fy = p[c + 1] - p[a + 1], fz = p[c + 2] - p[a + 2];
+        for (const v of [a, b, c]) { n[v] += ey * fz - ez * fy; n[v + 1] += ez * fx - ex * fz; n[v + 2] += ex * fy - ey * fx; }
+      }
+      for (let v = 0; v < p.length; v += 3) { const l = (hypot(n[v], n[v + 1], n[v + 2]) || 1) * (n[v] * p[v] + n[v + 1] * p[v + 1] + n[v + 2] * p[v + 2] < 0 ? -1 : 1); n[v] /= l; n[v + 1] /= l; n[v + 2] /= l; }
+      return { p, n };
+    });
+    const qRot = (q, x, y, z) => { const cx = q[1] * z - q[2] * y, cy = q[2] * x - q[0] * z, cz = q[0] * y - q[1] * x; return [x + 2 * (q[3] * cx + q[1] * cz - q[2] * cy), y + 2 * (q[3] * cy + q[2] * cx - q[0] * cz), z + 2 * (q[3] * cz + q[0] * cy - q[1] * cx)]; };
+    rseed(19); // after meshChunk, which reseeds
+    for (let m = 0; m < 4; m++) {
+      const a = solids[m] || [], M = BM[m], nv = M.p.length / 3;
+      for (let i = 0; i < a.length; i += 12) {
+        const sc = a[i + 3]; if (sc < 0.6 || !thin()) continue; // the smallest are satellites and rubble
+        const q = [a[i + 4], a[i + 5], a[i + 6], a[i + 7]];
+        let made = 0;
+        for (let j = 0, want = min(64, round(GROW.perM2 * 10 * sc * sc)); j < want; j++) {
+          const v = (rnd() * nv | 0) * 3, p = qRot(q, M.p[v] * sc, M.p[v + 1] * sc, M.p[v + 2] * sc), n = qRot(q, M.n[v], M.n[v + 1], M.n[v + 2]);
+          p[0] += a[i]; p[1] += a[i + 1]; p[2] += a[i + 2];
+          if (Dw(p[0], p[1], p[2]) > 0) continue; // this side is buried in the seabed or a cliff
+          if (n[1] < -0.3 && rnd() < 0.3) continue; // a little thinner underneath
+          // small pieces, so a boulder reads as encrusted rather than studded with pots; corals mostly on top
+          const coral = n[1] > -0.1 && rnd() < (n[1] > 0.3 ? 0.5 : 0.2), size = (coral ? rr(0.35, 0.9) : rr(0.18, 0.5)) * clamp(sc / 1.5, 0.6, 1.3), l = hypot(n[0], n[1] + 0.3, n[2]) || 1;
+          if (piece(coral, p, [n[0] / l, (n[1] + 0.3) / l, n[2] / l], size, rnd())) made++;
+        }
+        if (made) { grown.bouldersPlanted++; if (sc > 1.1) grown.bigBouldersPlanted++; grown.onBoulders += made; }
+      }
+    }
+  }
   // 12 floats per fish: home xyz, radius | seed, speed, size, phase | colours, behaviour, two behaviour parameters
   // (see vsFish). One list per mesh: 0 bait, 1 slim, 2 triggerfish, 3 hunter, 4 clownfish, 5 disc, 6 idol, 7 parrotfish
   const fishK = Array.from({ length: 8 }, () => []);
@@ -526,7 +605,7 @@ function makeWorld(D, T, flyPts, POSES) {
     for (let c = 0; c < nCells; c++) { const a = L[c]; for (let i = 0; i < a.length; i += 12) { for (let j = 0; j < 12; j++) data[k++] = a[i + j]; lo[c] = min(lo[c], a[i + 1] - 3); hi[c] = max(hi[c], a[i + 1] + 3); } }
     return { data, n, start, lo, hi };
   };
-  return { gy, glints: new Float32Array(glints), chunks: chunks.map(packC), props: props.map(packC), tent: packC(tent), ANEM, big: pack(big), bigF: pack(big, 2, 1.5), small: pack(small), solids: { data: new Float32Array(sol.data), ranges: sol.ranges }, bubbles: new Float32Array(bubbles), volD, gm, fish: new Float32Array(fish), fishR, BALLS, SPOTS, mantas: new Float32Array(mantas), snow };
+  return { gy, grown, glints: new Float32Array(glints), chunks: chunks.map(packC), props: props.map(packC), tent: packC(tent), ANEM, big: pack(big), bigF: pack(big, 2, 1.5), small: pack(small), solids: { data: new Float32Array(sol.data), ranges: sol.ranges }, bubbles: new Float32Array(bubbles), volD, gm, fish: new Float32Array(fish), fishR, BALLS, SPOTS, mantas: new Float32Array(mantas), snow };
 }
 const fract = (x) => x - floor(x);
 

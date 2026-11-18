@@ -1,0 +1,5 @@
+{
+  "note": "Two benchmark flights run back to back on 2026-11-18 about 11:49-11:51 in the same browser window (outer size 1716x1024 on a 1736x1133 screen, after the owner had resized it), viewport emulated at 2560x1440x1, detail High. Values as returned by window.dev.result (only gpu, frame average and frame count were kept).",
+  "yesterdaysUntouchedBuild": { "size": "2560x1440", "detail": 0, "gpu": { "n": 5691, "avg": 9.6531038761893, "p99": 14.286848068237305, "max": 34.4719352722168, "over16_7": 2 }, "frameAvg": 10.54440352468871, "frames": 5691 },
+  "thisBuildFloatingRocksRemoved": { "size": "2560x1440", "detail": 0, "gpu": { "n": 5743, "avg": 9.569214563720134, "p99": 13.172736167907715, "max": 33.882110595703125, "over16_7": 1 }, "frameAvg": 10.448946624688107, "frames": 5743, "outer": [1716, 1024], "screen": [1736, 1133] }
+}

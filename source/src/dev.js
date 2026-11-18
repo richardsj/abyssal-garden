@@ -81,8 +81,8 @@
         let np = false; for (let i = 0; i < nPath; i++) { const q = flyPts[i]; if ((q[0] - x) ** 2 + (q[1] - y) ** 2 + (q[2] - z) ** 2 < 100) { np = true; if (!(i % 10)) add(perSecond[i / 10], r, p); } }
         if (np) add(out.nearPath, r, p);
       }
-      // Loose rock, which the generator never plants anything on: boulders (meshes 0-3) are separate objects, floating
-      // (they bob) or resting on the seabed. "Big" = scale over 1.1; the small ones are satellites and rubble.
+      // Loose rock: boulders (meshes 0-3) are separate objects resting on the seabed. The floating ones (bob > 0) were
+      // removed from the scene on 2026-11-18, so those counts should read 0. "Big" = scale over 1.1.
       const sd = Wd.solids.data, boulders = { floating: 0, floatingBig: 0, resting: 0, restingBig: 0 }, bigFloat = [];
       for (let m = 0; m < 4; m++) { const [s, n] = Wd.solids.ranges[m]; for (let i = s; i < s + n; i++) { const k = i * 12, sc = sd[k + 3], fl = sd[k + 11] > 0; boulders[fl ? 'floating' : 'resting']++; if (sc > 1.1) { boulders[fl ? 'floatingBig' : 'restingBig']++; if (fl) bigFloat.push([+sd[k].toFixed(1), +sd[k + 1].toFixed(1), +sd[k + 2].toFixed(1), +sc.toFixed(2)]); } } }
       bigFloat.sort((a, b) => b[3] - a[3]);
@@ -93,6 +93,7 @@
         distinctPoints: { reef: seen[0].size, plants: seen[1].size },
         props, propTriangles: Object.fromEntries(PROPM.map((m) => ['mesh' + m, meshes[m].ib.length / 3])), anemones: Wd.ANEM.length, anemoneTentacles: tk[0], polyps: tk[1] / 8, seaWhips: tk[2], leaves,
         rockChunks: Wd.chunks.map((c) => c.n), fishPerMesh: Wd.fishR.map((r) => r[1]), fishTotal: Wd.fish.length / 12,
+        grown: Wd.grown, // what the denser-reef sections of the generator added (already included in the counts above)
         boulders, bigFloatingBoulders: bigFloat, // [x, y, z, scale], largest first
         rock, samplesPerFlightSecond: perSecond.map((t) => t.samples), bareOfReefPctPerFlightSecond: perSecond.map((t) => t.samples ? Math.round(100 * t.bareOfReef / t.samples) : -1), bareOfAllPctPerFlightSecond: perSecond.map((t) => t.samples ? Math.round(100 * t.bareOfAll / t.samples) : -1),
       };
