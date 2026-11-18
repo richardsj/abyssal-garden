@@ -1,0 +1,8 @@
+[
+  { "why": "feature bullet",
+    "find": "- **A purple grotto** with glowing magenta ground cover, coral and barrel sponges\n",
+    "replace": "- **A purple grotto** with glowing magenta ground cover, coral and barrel sponges\n- **A night dive**: press `N` and the sun sinks to moonlight over a few seconds. The jellyfish, coral tips and kelp specks light the reef, your lamp brings out the fluorescent corals close by, and plankton sparks blue-green around you when you swim fast\n" },
+  { "why": "controls row",
+    "find": "| Sound on / off | `M` (sound starts when you dive in) |\n",
+    "replace": "| Day / night | `N`, or **Day** / **Night** in the menu (a link ending in `?night=1` starts at night) |\n| Sound on / off | `M` (sound starts when you dive in) |\n" }
+]

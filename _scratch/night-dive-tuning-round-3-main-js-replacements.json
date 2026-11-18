@@ -1,0 +1,6 @@
+[
+  { "why": "arrays", "find": "const UB = new Float32Array(64), UBS = new Float32Array(64);", "replace": "const UB = new Float32Array(68), UBS = new Float32Array(68);" },
+  { "why": "buffers", "find": "const ubo = device.createBuffer({ size: 256, usage: BU.UNIFORM | BU.COPY_DST }), uboS = device.createBuffer({ size: 256, usage: BU.UNIFORM | BU.COPY_DST });", "replace": "const ubo = device.createBuffer({ size: 272, usage: BU.UNIFORM | BU.COPY_DST }), uboS = device.createBuffer({ size: 272, usage: BU.UNIFORM | BU.COPY_DST });" },
+  { "why": "moonlight constants", "find": "const NIGHT = 25, NGOAL = 26, STIR = 27;", "replace": "const NIGHT = 25, NGOAL = 26, STIR = 27;\n// moonlight as a fraction of sunlight, per colour, as natural logarithms: red .013, green .03, blue .066\nconst MOONR = -4.343, MOONG = -3.507, MOONB = -2.718;" },
+  { "why": "sky light uniform", "find": "  m[60] = F[VX]; m[61] = F[VY]; m[62] = F[VZ]; m[63] = F[STIR];", "replace": "  m[60] = F[VX]; m[61] = F[VY]; m[62] = F[VZ]; m[63] = F[STIR];\n  // sky light fades by equal ratios, not equal amounts, so dusk looks half way and not like day\n  m[64] = exp(MOONR * nt); m[65] = exp(MOONG * nt); m[66] = exp(MOONB * nt);" }
+]

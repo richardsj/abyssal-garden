@@ -1,0 +1,7 @@
+[
+  { "why": "darker moonlight", "find": "const MOON = vec3f(.02, .045, .09);", "replace": "const MOON = vec3f(.013, .03, .066);" },
+  { "why": "tentacle glow not boosted (exposure already doubles it)", "find": "  c += emi * glo() * (.65 + .35 * sin(g.cam.w * 1.7 + i.m.y * 50. - v * 3.));", "replace": "  c += emi * (1. - .25 * g.mis.w) * (.65 + .35 * sin(g.cam.w * 1.7 + i.m.y * 50. - v * 3.));" },
+  { "why": "fish glow turned down at night", "find": "  c += emi * glo() * (.75 + .25 * sin(g.cam.w * 2. + s * 40.));", "replace": "  c += emi * (1. - .45 * g.mis.w) * (.75 + .25 * sin(g.cam.w * 2. + s * 40.));" },
+  { "why": "coral afterglow gentler", "find": ".12 * (1. + 2. * g.mis.w));", "replace": ".12 * (1. + .8 * g.mis.w));" },
+  { "why": "fluorescence under the lamp gentler", "find": "(flc * 2.4 + alb * flu * .7) * lmp * g.mis.w;", "replace": "(flc * 1.3 + alb * flu * .5) * lmp * g.mis.w;" }
+]

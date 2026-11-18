@@ -1,0 +1,20 @@
+[
+  { "why": "uniform block gains the sky-light colour",
+    "find": "res: vec4f, mis: vec4f, vel: vec4f };",
+    "replace": "res: vec4f, mis: vec4f, vel: vec4f, lit: vec4f };" },
+  { "why": "sky light comes from the uniform",
+    "find": "// stirred up the water around the viewer is (0..1, lingers a couple of seconds). MOON = moonlight as a fraction of\n// sunlight, per colour. lite() scales everything that comes from the sky (sun, skylight, haze); glo() scales what the\n// scene lights itself (bioluminescence), which the dark-adapted eye sees more strongly. The exposure also rises at\n// night (main.js), so the true ratios on screen are about 2.2 times these.\nconst MOON = vec3f(.013, .03, .066);\nfn lite() -> vec3f { return mix(vec3f(1.), MOON, g.mis.w); }",
+    "replace": "// stirred up the water around the viewer is (0..1, lingers a couple of seconds). g.lit = how strong the light from the\n// sky is, per colour: 1 by day, falling to moonlight (MOON in main.js) in even-looking steps. lite() scales everything\n// that comes from the sky (sun, skylight, haze); glo() scales what the scene lights itself (bioluminescence), which\n// the dark-adapted eye sees more strongly. The exposure also rises at night (main.js), so on screen the glow is about\n// 2.2 times stronger again.\nfn lite() -> vec3f { return g.lit.xyz; }" },
+  { "why": "tentacle glow a little lower at night",
+    "find": "  c += emi * (1. - .25 * g.mis.w) * (.65 + .35 * sin(g.cam.w * 1.7",
+    "replace": "  c += emi * (1. - .4 * g.mis.w) * (.65 + .35 * sin(g.cam.w * 1.7" },
+  { "why": "jellyfish: less lamp wash so the ribs still show",
+    "find": "* 1.2 + lamp(i.wp, .6)) + emi * mix(JGLOW, 1., g.mis.w);",
+    "replace": "* 1.2 + lamp(i.wp, .3)) + emi * mix(JGLOW, 1., g.mis.w);" },
+  { "why": "plankton sparks: more specks, bigger when flashing",
+    "find": "  let sz = (.012 + .045 * a.w * a.w * a.w);\n  let w = p + (g.right.xyz * q.x + g.up.xyz * q.y) * max(sz, d * .0011);",
+    "replace": "  let sz = (.012 + .045 * a.w * a.w * a.w);\n  // night: stirred-up plankton near the viewer flashes blue-green, each speck on its own beat (g.vel.w = how stirred)\n  let spk = g.mis.w * g.vel.w * ss(12., 2., d) * ss(.5, 1.5, d) * ss(-.3, -1.5, p.y) * pow(.5 + .5 * sin(t * (4. + a.w * 7.) + a.y * 300.), 2.);\n  let w = p + (g.right.xyz * q.x + g.up.xyz * q.y) * max(sz, d * .0011) * (1. + spk);" },
+  { "why": "plankton sparks: pass on",
+    "find": "  // night: stirred-up plankton near the viewer flashes blue-green, each speck on its own beat (g.vel.w = how stirred)\n  o.sp = g.mis.w * g.vel.w * ss(9., 1.5, d) * fade * pow(.5 + .5 * sin(t * (5. + a.w * 9.) + a.y * 300.), 4.) * step(.35, fract(a.x * 91.7));\n",
+    "replace": "  o.sp = spk;\n" }
+]

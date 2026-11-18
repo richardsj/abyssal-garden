@@ -1,0 +1,4 @@
+[
+  { "why": "Light label styled like Detail", "find": "#s, #w, #q, #k, #h { font-size: .8em; letter-spacing: .12em; text-transform: uppercase; }", "replace": "#s, #w, #q, #n, #k, #h { font-size: .8em; letter-spacing: .12em; text-transform: uppercase; }" },
+  { "why": "two wider buttons so the label column lines up with the row above", "find": "#q button:hover, #n button:hover { background: #7ff3ff33; }", "replace": "#n button { flex: 1.8; }\n#q button:hover, #n button:hover { background: #7ff3ff33; }" }
+]

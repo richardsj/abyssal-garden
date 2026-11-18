@@ -26,7 +26,7 @@
   //   ?fly=12.5         still at 12.5 s into the flight (clock held at the same value unless &time= is given)
   //   ?bench=1          run the benchmark flight 3 s after loading
   // Any of them pins the resolution to its maximum (2560x1440 in a window that size) and the draw distance to full.
-  let pinned = false, fixT = -1;
+  let pinned = false, fixT = -1, fixStir = -1;
   const pin = () => { pinned = true; hud = false; info.textContent = ''; pix = PIXMAX; det = 1; resize(); ui(false); $('o').style.display = 'none'; };
   const startFlight = (b) => { flying = true; bench = b; fixT = -1; F[FLT] = 0; last = F[LAST]; nFrame = nGpu = 0; if (b) { hud = false; info.textContent = ''; dynT = -Infinity; } };
   const dev = window.dev = {
@@ -98,6 +98,9 @@
         rock, samplesPerFlightSecond: perSecond.map((t) => t.samples), bareOfReefPctPerFlightSecond: perSecond.map((t) => t.samples ? Math.round(100 * t.bareOfReef / t.samples) : -1), bareOfAllPctPerFlightSecond: perSecond.map((t) => t.samples ? Math.round(100 * t.bareOfAll / t.samples) : -1),
       };
     },
+    // night(1) = night at once, night(0) = day, in between = dusk held there. stir (0..1) holds how stirred up the
+    // plankton is while the camera is pinned (-1 = leave it to the swimming speed).
+    night(level, stir = -1) { night(level > 0.5); F[NIGHT] = F[NGOAL] = level; fixStir = stir; },
     bench() { pin(); dev.result = null; startFlight(true); },
     flight() { pin(); startFlight(false); }, get flying() { return flying; },
     get gpu() { return F[GPU]; },
@@ -106,7 +109,7 @@
   // frame() moves the free camera and then calls render(): step in between and put the camera on the path instead
   const draw = render;
   render = () => {
-    if (pinned) { dynT = -Infinity; if (fixT >= 0) F[TIME] = fixT; }
+    if (pinned) { dynT = -Infinity; if (fixT >= 0) F[TIME] = fixT; if (fixStir >= 0) F[STIR] = fixStir; }
     if (flying) {
       const dtr = F[LAST] - last; last = F[LAST];
       F[FLT] += min(dtr / 1000, 0.1); flyAt();

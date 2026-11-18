@@ -1,0 +1,8 @@
+[
+  { "why": "dev.night",
+    "find": "    bench() { pin(); dev.result = null; startFlight(true); },",
+    "replace": "    // night(1) = night at once, night(0) = day, in between = dusk held there. stir (0..1) holds how stirred up the\n    // plankton is while the camera is pinned (-1 = leave it to the swimming speed).\n    night(level, stir = -1) { night(level > 0.5); F[NIGHT] = F[NGOAL] = level; fixStir = stir; },\n    bench() { pin(); dev.result = null; startFlight(true); }," },
+  { "why": "hold stir while pinned",
+    "find": "    if (pinned) { dynT = -Infinity; if (fixT >= 0) F[TIME] = fixT; }",
+    "replace": "    if (pinned) { dynT = -Infinity; if (fixT >= 0) F[TIME] = fixT; if (fixStir >= 0) F[STIR] = fixStir; }" }
+]

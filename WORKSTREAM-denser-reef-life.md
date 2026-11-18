@@ -209,3 +209,16 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
   fade and curve, more lean. Details at the end of the jellyfish REPORT. Not yet seen by the owner or a critic.
 - Next, in order: the night dive (agreed third step); then from the critics, the golden hunters' flat shading (three
   reviewers); jellyfish that cast shadows; then the owner's backlog (caustic pattern, curious cuttlefish, waves).
+- 2026-11-18, about 16:05: the night dive (third agreed step). `N`, a Day / Night row in the menu, or `?night=1`: the
+  sun fades to moonlight over about six seconds, the exposure rises, and the scene's own glow, a wider diver's lamp
+  and blue-green plankton sparks (when swimming fast) carry the picture. One night number and one sky-light colour
+  feed the four shared light functions. Four back-to-back benchmark flights: 9.97 ms before, 9.45 by day, 9.92 by
+  night, 9.97 before again (GPU average), so no measurable cost; this is also the first benchmark of the cuttlefish
+  and the final jellyfish batch. Report and stills: `test-probe-steps/20261118_1550-night-dive/`. Not yet seen in
+  motion, by the owner or by a critic.
+- The uniform block now carries the viewer's velocity and a "water stirred up" value (`g.vel`), which the
+  curious-but-cautious cuttlefish needs.
+- Seen while tuning, not acted on: the anemone in front of viewpoint 1 is close to white at its tips by day and by
+  night; the README still says "one 117 KB HTML file" (it is 133,788 bytes).
+- Next, in order: the golden hunters' flat shading (three reviewers); jellyfish that cast shadows; then the owner's
+  backlog (caustic pattern, curious cuttlefish, waves).

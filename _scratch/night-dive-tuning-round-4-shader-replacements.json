@@ -1,0 +1,8 @@
+[
+  { "why": "sparks are pinpricks whatever the speck's own size",
+    "find": "  let w = p + (g.right.xyz * q.x + g.up.xyz * q.y) * max(sz, d * .0011) * (1. + spk);",
+    "replace": "  let w = p + (g.right.xyz * q.x + g.up.xyz * q.y) * mix(max(sz, d * .0011), max(.016, d * .002), sat(spk * 3.));" },
+  { "why": "sparks: tight core",
+    "find": "+ vec3f(.1, .95, .7) * (i.sp * m * 5.), vec3f(0.)), vec3f(8.)), 0.);",
+    "replace": "+ vec3f(.1, .95, .7) * (i.sp * m * m * m * 6.), vec3f(0.)), vec3f(8.)), 0.);" }
+]

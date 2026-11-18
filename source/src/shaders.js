@@ -190,7 +190,7 @@ const WK = array<vec3f, 10>(vec3f(1., 2., 1.), vec3f(-2., 1., .9), vec3f(3., 1.,
 
 // ---------------------------------------------------------------- shared scene code
 const S_G = /*wgsl*/`
-struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: vec4f, sun: vec4f, res: vec4f, mis: vec4f };
+struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: vec4f, sun: vec4f, res: vec4f, mis: vec4f, vel: vec4f, lit: vec4f };
 // Water: SIG = how fast red, green, blue fade per metre you look through; KD = how fast sunlight dims per metre of
 // depth (keep SIG > KD in every channel: fogIn() divides by SIG - KD * rd.y); WCOL = what the distance fades into.
 // "Clear sapphire", chosen from a palette of five on 2026-11-18 (test-probe-steps/20261118_1235-water-colour-palette):
@@ -201,6 +201,14 @@ const WCOL = vec3f(.06, .36, .98);
 const KDZ = vec3f(.034, .023, .018);
 const PCOL = vec3f(.44, .40, .96);
 const SUNC = vec3f(1.66, 1.6, 1.56);
+// Night dive (2026-11-18). g.mis.w runs from 0 (day) to 1 (night); g.vel = the viewer's velocity (m/s) and, in w, how
+// stirred up the water around the viewer is (0..1, lingers a couple of seconds). g.lit = how strong the light from the
+// sky is, per colour: 1 by day, falling to moonlight (MOON in main.js) in even-looking steps. lite() scales everything
+// that comes from the sky (sun, skylight, haze); glo() scales what the scene lights itself (bioluminescence), which
+// the dark-adapted eye sees more strongly. The exposure also rises at night (main.js), so on screen the glow is about
+// 2.2 times stronger again.
+fn lite() -> vec3f { return g.lit.xyz; }
+fn glo() -> f32 { return 1. + 1.5 * g.mis.w; }
 const TAU = 6.2831853;
 const LOW = ${LV > 1};
 fn sat(x: f32) -> f32 { return clamp(x, 0., 1.); }
@@ -218,7 +226,7 @@ fn fogIn(ro: vec3f, rd: vec3f, d: f32, z: f32, sun: vec3f) -> vec3f {
   let I = (1. - exp(-a * d)) / a;
   let mu = max(dot(rd, sun), 0.);
   let m2 = mu * mu;
-  return mix(WCOL, PCOL, z) * sg(z) * exp(k * ro.y) * I * (1.22 + .3 * m2 * m2);
+  return mix(WCOL, PCOL, z) * lite() * sg(z) * exp(k * ro.y) * I * (1.22 + .3 * m2 * m2);
 }
 `;
 
@@ -259,14 +267,17 @@ fn caus2(p: vec3f, d: f32) -> f32 {
   let c = min(pow(textureSample(tW, sR, q / 4.1).r, 1.4) * 2.6 * (.45 + textureSample(tW, sR, q.yx / 6.9 + .37).r * 1.3), 2.6);
   return mix(c, .33, ss(35., 100., d));
 }
-fn sunE(y: f32, z: f32) -> vec3f { return SUNC * exp(kd(z) * (min(y, 0.) / g.sun.y)) * (.5 + .5 * sat(-y / 30.)); }
+fn sunE(y: f32, z: f32) -> vec3f { return SUNC * lite() * exp(kd(z) * (min(y, 0.) / g.sun.y)) * (.5 + .5 * sat(-y / 30.)); }
 fn vol(p: vec3f) -> vec4f { return textureSampleLevel(tV, sC, (p - vec3f(-192., -56., -192.)) / vec3f(384., 60., 384.), 0.); }
 fn amb(p: vec3f, n: vec3f, sky: f32, z: f32) -> vec3f {
   let up = n.y * .5 + .5;
-  return mix(vec3f(.16, .48, .88), vec3f(.34, .56, .82), z) * exp(kd(z) * min(p.y, 0.) * 1.2) * (.3 + .7 * sky) * (.24 + .76 * up * up) * 1.3 * (.55 + .45 * sat(-p.y / 30.)) + vec3f(.012, .034, .058);
+  return mix(vec3f(.16, .48, .88), vec3f(.34, .56, .82), z) * exp(kd(z) * min(p.y, 0.) * 1.2) * (.3 + .7 * sky) * (.24 + .76 * up * up) * 1.3 * (.55 + .45 * sat(-p.y / 30.)) * lite() + vec3f(.012, .034, .058) * (1. - .7 * g.mis.w);
 }
 fn zone(p: vec3f) -> f32 { return mix(g.sun.w, textureSampleLevel(tM, sC, p.xz / 384. + .5, 0.).b, .2); }
-fn side(p: vec3f, n: vec3f, open: f32, z: f32) -> vec3f { return mix(WCOL, PCOL, z) * exp(kd(z) * min(p.y, 0.)) * open * (1. - abs(n.y)) * .7; }
+fn side(p: vec3f, n: vec3f, open: f32, z: f32) -> vec3f { return mix(WCOL, PCOL, z) * lite() * exp(kd(z) * min(p.y, 0.)) * open * (1. - abs(n.y)) * .7; }
+// the diver's lamp at night, for everything but the rock (which has its own, also by day): how much light reaches a
+// surface at wp whose normal makes cosine ndv with the direction to the viewer
+fn lamp(wp: vec3f, ndv: f32) -> vec3f { let d = distance(wp, g.cam.xyz); return vec3f(1., .97, .9) * (g.mis.w * .55 * (.3 + .7 * ndv) / (1. + d * d * .07)); }
 // skylight at most 150 m along the ray: past that, terrain and the background behind it (vsB) get the same haze
 fn fog(c: vec3f, wp: vec3f, z: f32) -> vec3f {
   let v = wp - g.cam.xyz; let d = length(v); let rd = v / d;
@@ -397,9 +408,11 @@ fn tri(p: vec3f, n: vec3f, s: f32) -> TP {
   let ndl = sat(dot(N, L));
   let am = (amb(i.wp, N, v1.g, z) + side(i.wp, N, sat((v2.r - .5) * 2.7), z)) * ao;
   let dl = E * ndl * (.10 + mix(vec3f(.33), ca, ss(.1, .45, dot(n0, L))) * 2.5);
-  var c = alb * (dl + am) + emi + alb * flu * dot(dl + am, vec3f(.1, .5, .5)) + flc * (dot(dl + am, vec3f(.1, .5, .6)) * 2.2 + .12);
-  // the diver's lamp: what the camera passes closely keeps its form and its true colours
-  c += alb * vec3f(1., .97, .9) * (.42 / (1. + dist * dist * .07)) * (.25 + .75 * sat(dot(N, V))) * (.4 + .6 * ao);
+  var c = alb * (dl + am) + emi * glo() + alb * flu * dot(dl + am, vec3f(.1, .5, .5)) + flc * (dot(dl + am, vec3f(.1, .5, .6)) * 2.2 + .12 * (1. + .8 * g.mis.w));
+  // the diver's lamp: what the camera passes closely keeps its form and its true colours. At night it is stronger and
+  // carries blue enough to set off the fluorescent pigments, as on a real fluorescence night dive.
+  let lmp = (.25 + .75 * sat(dot(N, V))) * (.4 + .6 * ao) / (1. + dist * dist * .07);
+  c += alb * vec3f(1., .97, .9) * lmp * (.42 + .35 * g.mis.w) + (flc * 1.3 + alb * flu * .5) * lmp * g.mis.w;
   let H = normalize(V + L);
   c += E * (.25 + ca) * pow(sat(dot(N, H)), mix(10., 70., gloss)) * gloss * ndl * 1.8;
   c += (amb(i.wp, reflect(-V, N), v1.g, z) + side(i.wp, reflect(-V, N), sat((v2.r - .5) * 2.7), z)) * ao * (.08 + gloss) * .6 * pow(1. - sat(dot(N, V)), 2.5);
@@ -521,11 +534,11 @@ struct GO { @builtin(position) cp: vec4f, @location(0) uv: vec2f, @location(1) @
   let H = normalize(V + L);
   c += E * (pow(sat(dot(n, H)), 40.) * (.45 + ir * i.pr.z * 2.) + pow(sat(dot(n, H)), 9.) * .07) + am * ir * i.pr.z * pow(1. - ndv, 3.) * 1.5;
   c += E * trc * i.pr.y * pow(sat(dot(-V, L)), 3.) * 1.2;
-  c += alb * i.pr.w * (.5 + 3. * dot(am + E * .3, vec3f(.1, .5, .5)));
+  c += alb * i.pr.w * (.5 + 3. * dot(am + E * .3, vec3f(.1, .5, .5))) + (alb + trc * i.pr.y * .5) * lamp(i.wp, ndv);
   // sparkle: whole-leaf glints that twinkle slowly
   let tw = pow(.5 + .5 * sin(g.cam.w * (.5 + i.sd.y * 1.4) + i.sd.x * 90.), 5.);
   let m = ss(.2, .0, abs(i.uv.y - (.35 + .45 * i.sd.y))) * (1. - i.uv.x * i.uv.x);
-  let lit = .35 + E.g * 1.2;
+  let lit = .35 * (1. - .8 * g.mis.w) + E.g * 1.2;
   c += i.spc * i.pr.x * (.1 + tw) * m * lit * .6;
   return fin(fog(c, i.wp, z));
 }
@@ -595,8 +608,8 @@ fn tpos(a: vec4f, b: vec4f, c: vec4f, v: f32, t: f32) -> vec3f {
   let E = sunE(i.wp.y, z) * i.lt * (.5 + .5 * ca);
   let ndl = dot(n, L);
   var c = alb * (E * (.3 + .7 * sat(ndl) + .3 * sat(-ndl)) + amb(i.wp, n, vv.g, z) * 1.25) * (.5 + .5 * sqrt(max(1. - u * u, 0.)));
-  c += E * pow(sat(dot(n, normalize(V + L))), 30.) * .5 + alb * pow(abs(u), 3.) * .25 * vv.g;
-  c += emi * (.65 + .35 * sin(g.cam.w * 1.7 + i.m.y * 50. - v * 3.)); // the pulse runs out toward the tip
+  c += E * pow(sat(dot(n, normalize(V + L))), 30.) * .5 + alb * pow(abs(u), 3.) * .25 * vv.g * lite() + alb * lamp(i.wp, sat(dot(n, V)));
+  c += emi * (1. - .4 * g.mis.w) * (.65 + .35 * sin(g.cam.w * 1.7 + i.m.y * 50. - v * 3.)); // the pulse runs out toward the tip
   return fin(fog(c, i.wp, z));
 }
 `;
@@ -838,10 +851,10 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
   let ndl = dot(n, L); let ndv = sat(dot(n, V));
   // fins let some light through from behind
   var c = alb * (E * (.25 + .75 * sat(ndl) + fi * .45 * sat(-ndl)) + amb(i.wp, n, vv.g, z) * (.3 + .6 * sat((vv.r - .5) * 2.7)) * (.6 + .4 * sat(n.y * .5 + .5 + ndl * .5)));
-  c += E * pow(sat(dot(n, normalize(V + L))), 24.) * (1.2 + i.sd.z * 3.) * (1. - fi) + vec3f(.3, .6, .7) * pow(1. - ndv, 3.) * .25 * vv.g;
-  c += irid(ndv * 1.2 + x * .6 + s) * ir * pow(1. - ndv, 1.5) * (E + .1);
+  c += E * pow(sat(dot(n, normalize(V + L))), 24.) * (1.2 + i.sd.z * 3.) * (1. - fi) + vec3f(.3, .6, .7) * lite() * pow(1. - ndv, 3.) * .25 * vv.g;
+  c += irid(ndv * 1.2 + x * .6 + s) * ir * pow(1. - ndv, 1.5) * (E + .1 * (1. - .8 * g.mis.w)) + alb * lamp(i.wp, ndv);
   if (i.sd.y < .5) { c += E * pow(sat(dot(n, normalize(V + L))), 5.) * (.5 + 1.5 * i.sd.z) * (1. - back); }
-  c += emi * (.75 + .25 * sin(g.cam.w * 2. + s * 40.));
+  c += emi * (1. - .45 * g.mis.w) * (.75 + .25 * sin(g.cam.w * 2. + s * 40.));
   return fin(fog(c, i.wp, z));
 }
 @vertex fn vsManta(i: VI) -> VO {
@@ -886,7 +899,7 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
   let ir = .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + ndv * 1.1 + tx.a * 1.5 + .55));
   let fillN = vec3f(n.x, abs(n.y) * .55 + .25, n.z);
   var c = alb * (E * sat(dot(n, L)) * (.3 + ca) + amb(i.wp, fillN, vv.g, z) * 1.1 + side(i.wp, n, 1., z) * .8);
-  c += ir * vec3f(.35, .16, .6) * (.07 + .22 * tx.b) * (.4 + E.g * .2 * ca.g) * (1. - top * .3);
+  c += ir * vec3f(.35, .16, .6) * (.07 + .22 * tx.b) * (.4 * (1. - .8 * g.mis.w) + E.g * .2 * ca.g) * (1. - top * .3) + alb * lamp(i.wp, ndv);
   c += E * pow(sat(dot(n, normalize(V + L))), 30.) * .5 * (.3 + ca);
   let sky = amb(i.wp, vec3f(0., 1., 0.), vv.g, z);
   c += alb * sky * ca * .45 * (1. - top) + sky * pow(1. - ndv, 3.) * .35;
@@ -898,7 +911,7 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
 struct JO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n: vec3f, @location(2) op: vec4f, @location(3) @interpolate(flat) sd: vec3f, @location(4) lt: f32, @location(5) @interpolate(flat) vw: f32 };
 // How much of its own light a jellyfish gives off. A fifth in daylight (2026-11-18): at full strength every one was
 // equally bright in sun and in shade, which made them look laid over the picture. The night dive should raise this.
-const JGLOW = .2;
+const JGLOW = .2; // the jellyfish's own light by day; by night it is 1
 @vertex fn vsJelly(i: VI) -> JO {
   var o: JO;
   let t = g.cam.w; let R = i.a.w; let s = i.b.x; let sz = i.b.y; let ph = i.b.z;
@@ -982,7 +995,7 @@ const JGLOW = .2;
   let E = sunE(i.wp.y, z) * i.lt;
   let dap = mix(vec3f(.5 + .5 * ca), .3 + cf * 1.2, sat(n0.y) * f32(au >= 0.));
   let dim = select(mix(1., .7, au), .6, au < 0.);
-  var c = col * (E * dap * (.2 + .6 * sat(ndl) + .25 * sat(-ndl)) * dim + amb(i.wp, n, vv.g, z) * (.3 + .6 * sat((vv.r - .5) * 2.7)) * 1.2) + emi * JGLOW;
+  var c = col * (E * dap * (.2 + .6 * sat(ndl) + .25 * sat(-ndl)) * dim + amb(i.wp, n, vv.g, z) * (.3 + .6 * sat((vv.r - .5) * 2.7)) * 1.2 + lamp(i.wp, .3)) + emi * mix(JGLOW, 1., g.mis.w);
   // a wet highlight on the wall facing the viewer, and sunlight glowing through the thick edge of the dome, strongest
   // when looking toward the sun
   if (au >= 0. && !mem) {
@@ -1016,7 +1029,8 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f };
   let rr = refract(V, n, 1.33);
   let sd = max(dot(rr, g.sun.xyz), 0.);
   let fr = pow(1. - sqrt(max(k, 0.)), 5.);
-  let sky = (vec3f(.24, .66, 1.) * 1.3 * clamp(1. + 2.3 * (s.x * .6 - s.y * .8), .5, 2.2) + vec3f(1., .95, .85) * (pow(sd, 60.) * 1.3 + pow(sd, 500.) * 12. + pow(sd, 4000.) * 22.)) * (1. - fr);
+  // by night the sky dims with everything else, and the sun's disc becomes a paler, much weaker moon
+  let sky = (vec3f(.24, .66, 1.) * lite() * 1.3 * clamp(1. + 2.3 * (s.x * .6 - s.y * .8), .5, 2.2) + mix(vec3f(1., .95, .85), vec3f(.05, .065, .08), g.mis.w) * (pow(sd, 60.) * 1.3 + pow(sd, 500.) * 12. + pow(sd, 4000.) * 22.)) * (1. - fr);
   let z = zone(i.wp);
   let R = reflect(V, n);
   let refl = fogIn(i.wp, R, 300., z, g.sun.xyz) * 1.15;
@@ -1039,7 +1053,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f };
 
 // ---------------------------------------------------------------- sprites: bubbles (alpha) and drifting particles (additive)
 const W_SPR = S_B + /*wgsl*/`
-struct VO { @builtin(position) cp: vec4f, @location(0) uv: vec2f, @location(1) @interpolate(flat) pr: vec4f, @location(2) wp: vec3f };
+struct VO { @builtin(position) cp: vec4f, @location(0) uv: vec2f, @location(1) @interpolate(flat) pr: vec4f, @location(2) wp: vec3f, @location(3) @interpolate(flat) sp: f32 };
 fn quad(i: u32) -> vec2f { return vec2f(f32(i & 1u), f32(i >> 1u)) * 2. - 1.; }
 @vertex fn vsBub(@builtin(vertex_index) vi: u32, @location(0) a: vec4f, @location(1) b: vec4f) -> VO {
   var o: VO; let q = quad(vi); let t = g.cam.w;
@@ -1083,19 +1097,23 @@ fn quad(i: u32) -> vec2f { return vec2f(f32(i & 1u), f32(i >> 1u)) * 2. - 1.; }
   p = g.cam.xyz + (fract((p - g.cam.xyz) / B + .5) - .5) * B;
   let d = length(p - g.cam.xyz);
   let sz = (.012 + .045 * a.w * a.w * a.w);
-  let w = p + (g.right.xyz * q.x + g.up.xyz * q.y) * max(sz, d * .0011);
+  // night: stirred-up plankton near the viewer flashes blue-green, each speck on its own beat (g.vel.w = how stirred)
+  let spk = g.mis.w * g.vel.w * ss(12., 2., d) * ss(.5, 1.5, d) * ss(-.3, -1.5, p.y) * pow(.5 + .5 * sin(t * (4. + a.w * 7.) + a.y * 300.), 2.);
+  let w = p + (g.right.xyz * q.x + g.up.xyz * q.y) * mix(max(sz, d * .0011), max(.016, d * .002), sat(spk * 3.));
   o.cp = g.vp * vec4f(w, 1.); o.uv = q; o.wp = p;
   let fade = ss(B * .5, B * .32, d) * ss(.6, 2.5, d) * min(1., sz / (d * .0011)) * ss(-.3, -1.5, p.y);
   let tw = .6 + .4 * sin(t * (1. + a.w * 2.) + a.x * 100.);
   o.pr = vec4f(fade * tw, shadow1(p), a.w, d);
+  o.sp = spk;
   return o;
 }
 @fragment fn fsSnow(i: VO) -> @location(0) vec4f {
   let r = length(i.uv);
   let m = ss(1., .2, r);
   let z = zone(i.wp);
-  let c = (sunE(i.wp.y, z) * i.pr.y * .8 + amb(i.wp, vec3f(0., 1., 0.), 1., z) * .3) * mix(vec3f(1.), vec3f(.7, 1., .9), i.pr.z);
-  return vec4f(min(max(c * m * m * i.pr.x * exp(-SIG.g * i.pr.w), vec3f(0.)), vec3f(8.)), 0.);
+  // by night the lamp catches the specks close by (backscatter)
+  let c = (sunE(i.wp.y, z) * i.pr.y * .8 + amb(i.wp, vec3f(0., 1., 0.), 1., z) * .3 + lamp(i.wp, 1.) * .5) * mix(vec3f(1.), vec3f(.7, 1., .9), i.pr.z);
+  return vec4f(min(max(c * m * m * i.pr.x * exp(-SIG.g * i.pr.w) + vec3f(.1, .95, .7) * (i.sp * m * m * m * 6.), vec3f(0.)), vec3f(8.)), 0.);
 }
 `;
 
@@ -1136,7 +1154,7 @@ const W_RAYS = S_G + W_FS + /*wgsl*/`
   let mu = max(dot(rd, sx), 0.);
   let ph = mix(.2 + 2.0 * mu * mu * mu, .8, g.sun.w);
   let wc = mix(WCOL + vec3f(.04, .07, .05), PCOL + vec3f(.12, .06, .04), g.sun.w);
-  return vec4f(min(acc * dt * sgz * wc * SUNC * ph * g.mis.y * (1. - .55 * g.sun.w), vec3f(20.)), zl);
+  return vec4f(min(acc * dt * sgz * wc * SUNC * lite() * (1. + 1.5 * g.mis.w) * ph * g.mis.y * (1. - .55 * g.sun.w), vec3f(20.)), zl);
 }
 `;
 // depth-aware 3x3 blur of the half-res shafts (hides the sampling dither)
@@ -1182,7 +1200,7 @@ fn sat3(x: vec3f) -> vec3f { return clamp(x, vec3f(0.), vec3f(1.)); }
   }
   var c = textureLoad(tS, px, 0).rgb + acc / ws;
   let bl = textureSampleLevel(tB, sC, uv, 0.).rgb;
-  c = mix(c, bl, .06) + bl * .03;
+  c = mix(c, bl, .06 + .06 * g.mis.w) + bl * (.03 + .12 * g.mis.w); // glow spreads more to the dark-adapted eye
   c *= g.mis.x;
   let q = uv - .5;
   c *= 1. - dot(q, q) * .55;

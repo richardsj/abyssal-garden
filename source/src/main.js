@@ -48,8 +48,8 @@ const tDetail = tex(1024, 1024, 'rgba8unorm', TU.RENDER_ATTACHMENT | TU.TEXTURE_
 const tVol = tex(NX / 2, NY / 2, 'rg8unorm', TU.TEXTURE_BINDING | TU.COPY_DST, { d: NZ / 2 });
 const tMap = tex(512, 512, 'rgba8unorm', TU.TEXTURE_BINDING | TU.COPY_DST);
 
-const UB = new Float32Array(60), UBS = new Float32Array(60);
-const ubo = device.createBuffer({ size: 240, usage: BU.UNIFORM | BU.COPY_DST }), uboS = device.createBuffer({ size: 240, usage: BU.UNIFORM | BU.COPY_DST });
+const UB = new Float32Array(68), UBS = new Float32Array(68);
+const ubo = device.createBuffer({ size: 272, usage: BU.UNIFORM | BU.COPY_DST }), uboS = device.createBuffer({ size: 272, usage: BU.UNIFORM | BU.COPY_DST });
 const WT = new Float32Array(4), uboW = device.createBuffer({ size: 16, usage: BU.UNIFORM | BU.COPY_DST });
 
 const VF = SS.VERTEX | SS.FRAGMENT;
@@ -241,6 +241,12 @@ const flyPts = [];
 // per-frame float state lives in one preallocated array, so the frame loop allocates no heap numbers
 const F = new Float64Array(32), P6 = new Float64Array(6);
 const CX = 0, CY = 1, CZ = 2, YAW = 3, PIT = 4, FX = 5, FY = 6, FZ = 7, RX = 8, RZ = 9, UX = 10, UY = 11, UZ = 12, VX = 13, VY = 14, VZ = 15, TIME = 16, FLT = 17, LAST = 18, GPU = 19, HUDT = 20, SPL = 21, MX = 22, MY = 23, MZ = 24;
+// Night dive: NIGHT runs 0 (day) .. 1 (night) and creeps toward NGOAL over about six seconds; STIR is how stirred up the
+// water round the viewer is (0..1): it rises with swimming speed and settles over a couple of seconds.
+const NIGHT = 25, NGOAL = 26, STIR = 27;
+// moonlight as a fraction of sunlight, per colour, as natural logarithms: red .013, green .03, blue .066
+const MOONR = -4.343, MOONG = -3.507, MOONB = -2.718;
+if (/[?&]night=1/.test(location.search)) F[NIGHT] = F[NGOAL] = 1;
 // aim the camera from P6 = position + look-at point
 function aim() {
   const dx = P6[3] - P6[0], dy = P6[4] - P6[1], dz = P6[5] - P6[2];
@@ -460,7 +466,11 @@ function render() {
   const zx = cx - PURPLE[0], zz = cz - PURPLE[1]; let zt = (50 - sqrt(zx * zx + zz * zz)) / 22; zt = zt < 0 ? 0 : zt > 1 ? 1 : zt;
   m[51] = zt * zt * (3 - 2 * zt);
   let ek = (-cy - 8) / 26; ek = ek < 0 ? 0 : ek > 1 ? 1 : ek;
-  m[56] = EXPO * (0.6 + 0.4 * ek); m[57] = RAYS; m[58] = det;
+  const nt = F[NIGHT] * F[NIGHT] * (3 - 2 * F[NIGHT]);
+  m[56] = EXPO * (0.6 + 0.4 * ek) * (1 + 1.2 * nt); m[57] = RAYS; m[58] = det; m[59] = nt;
+  m[60] = F[VX]; m[61] = F[VY]; m[62] = F[VZ]; m[63] = F[STIR];
+  // sky light fades by equal ratios, not equal amounts, so dusk looks half way and not like day
+  m[64] = exp(MOONR * nt); m[65] = exp(MOONG * nt); m[66] = exp(MOONB * nt);
   Q.writeBuffer(ubo, 0, UB);
   WT[0] = F[TIME]; Q.writeBuffer(uboW, 0, WT);
 
@@ -581,6 +591,11 @@ function frame(now) {
   }
   F[TIME] += dt;
   {
+    const dn = F[NGOAL] - F[NIGHT], st = dt / 6; F[NIGHT] += dn > st ? st : dn < -st ? -st : dn;
+    let want = (sqrt(F[VX] * F[VX] + F[VY] * F[VY] + F[VZ] * F[VZ]) - 1.5) / 6; want = want < 0 ? 0 : want > 1 ? 1 : want;
+    F[STIR] += (want - F[STIR]) * (1 - exp(-dt * (want > F[STIR] ? 4 : 0.6)));
+  }
+  {
     // touch: holding the finger away from where it went down keeps turning, like a joystick
     if (tId >= 0) {
       const tr = 4 / (innerWidth < innerHeight ? innerWidth : innerHeight); let jx = (tx - tx0) * tr, jy = (ty - ty0) * tr;
@@ -609,6 +624,10 @@ function frame(now) {
 }
 
 // ---------------------------------------------------------------- input
+// Day or night: the N key and the two buttons in the menu. The light itself fades over about six seconds (frame()).
+const bLight = $('n').querySelectorAll('button');
+const night = (on) => { F[NGOAL] = on ? 1 : 0; bLight[0].className = on ? '' : 'on'; bLight[1].className = on ? 'on' : ''; };
+bLight[0].onclick = () => night(false); bLight[1].onclick = () => night(true); night(F[NGOAL]);
 const key = (e, v) => {
   switch (e.code) {
     case 'KeyW': kf = v; break; case 'KeyS': kb = v; break; case 'KeyA': kl = v; break; case 'KeyD': kr = v; break;
@@ -616,13 +635,14 @@ const key = (e, v) => {
     default: if (v && !e.repeat) {
       if (e.code === 'KeyH') { hud = !hud; hTot = 0; hPer = 1e9; info.textContent = ''; }
       else if (e.code === 'KeyM') mute();
+      else if (e.code === 'KeyN') night(!F[NGOAL]);
       else if (e.code === 'Escape') ui(true);
       else if (e.code >= 'Digit1' && e.code <= 'Digit6') lookAt(...POSES[e.code.charCodeAt(5) - 49]);
     }
   }
 };
 // behind the menu only the stats and mute keys work
-addEventListener('keydown', (e) => { if (menu && e.code !== 'KeyH' && e.code !== 'KeyM') return; sound(); key(e, 1); });
+addEventListener('keydown', (e) => { if (menu && e.code !== 'KeyH' && e.code !== 'KeyM' && e.code !== 'KeyN') return; sound(); key(e, 1); });
 addEventListener('keyup', (e) => key(e, 0));
 const release = () => { kf = kb = kl = kr = ku = kd = ks = 0; tId = -1; tN = 0; };
 const capture = () => { sound(); const p = canvas.requestPointerLock({ unadjustedMovement: true }); if (p && p.catch) p.catch(() => canvas.requestPointerLock()).catch(() => 0); };
