@@ -183,6 +183,11 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
 - Backlog (owner, 2026-11-18, "not yet, later"): the caustic pattern "looks a little too much like a small
   chessboard and not enough like the strange swirls and spikes of light that come from waves in multiple angles on
   the surface".
+- Ideas from the forks (owner, 2026-11-18, after a look at `nayrad01/abyssal-garden`, "Deep Wonders"): their phone
+  touch controls (about 50 commits of iPhone work: hold-and-drag to swim, edge-hold to turn, depth gestures; the
+  owner has not tried them yet but "suspected it would be desirable"), and landmarks ("I saw some arches and
+  things"). The owner judged their fish schools and water well behind ours, so only controls and landmarks are of
+  interest. Other forks with ideas: VR through WebXR (`strayer/abyssal-garden-vr`, `ozghosty/abyssal-garden-vr`).
 - Queue after those: curious-but-cautious cuttlefish; the caustic pattern; the waves (real swell and a wind-driven pattern first, then light tied to the waves); the
   owner may suggest water values of their own.
 - 2026-11-18: benchmark method. The reading depends on how much of the browser window is on screen (a run during
