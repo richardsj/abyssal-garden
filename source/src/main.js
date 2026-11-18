@@ -107,7 +107,10 @@ const pFish = scenePipe(mAnim, 'vsFish', 'fsFish', [vbSolid, ibSolid]);
 const pTent = scenePipe(mTent, 'vs', 'fs', [ibSolid], { strip: true, constants: { ROWS: 12 } }), pTentF = scenePipe(mTent, 'vs', 'fs', [ibSolid], { strip: true, constants: { ROWS: 4 } });
 const pManta = scenePipe(mAnim, 'vsManta', 'fsManta', [vbSolid, ibAnim]);
 const pSurf = scenePipe(mSurf, 'vs', 'fs', [], { strip: true }), pBack = scenePipe(mSurf, 'vsB', 'fsB', [], { strip: true });
-const pBub = scenePipe(mSpr, 'vsBub', 'fsBub', [ibBub], { strip: true, blend: { color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } } });
+// see-through things are drawn over what is behind them (colour already multiplied by its opacity) and write no depth
+const OVER = { color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } };
+const pBub = scenePipe(mSpr, 'vsBub', 'fsBub', [ibBub], { strip: true, blend: OVER });
+const pJelly = scenePipe(mAnim, 'vsJelly', 'fsJelly', [vbSolid, ibAnim], { blend: OVER });
 const ADD = { color: { srcFactor: 'one', dstFactor: 'one' }, alpha: { srcFactor: 'one', dstFactor: 'one' } };
 const pSnow = scenePipe(mSpr, 'vsSnow', 'fsSnow', [ibSnow], { strip: true, blend: ADD });
 const pGl = scenePipe(mLeaf, 'vsGl', 'fsGl', [ibBub], { strip: true, blend: ADD, constants: { ROWS: 7 } });
@@ -279,7 +282,7 @@ D = Wd.gy = T.smp = null; // with gy goes the generator's working memory (about 
 await say('Building set pieces…', 0.94, 1200);
 // mesh ids: 0-3 boulders, 4-6 sponges, 7-8 coral, 9 tube sponge, 10 whale fluke, 11 ship, 12 manta, 13 bait fish,
 // 14-20 rock chunks + pebbles, 21-22 coral LOD, 23-25 far LOD of the large rock chunks, 26-32 the other fish,
-// 33-34 soft coral, 35 anemone column, 36 cuttlefish. The ids up to 35 are used by number elsewhere (PROPM, solid(),
+// 33-34 soft coral, 35 anemone column, 36 cuttlefish, 37 jellyfish. The ids up to 35 are used by number elsewhere (PROPM, solid(),
 // the LOD offsets), so a new shape goes on the end.
 const fishShapes = meshFishes().map((m) => m.build());
 const meshes = [meshChunk(1, 3), meshChunk(7, 3), meshChunk(13, 3), meshChunk(22, 3),
@@ -291,6 +294,7 @@ meshes.push(meshFluke(), meshShip().build(), meshManta().build(), fishShapes[0],
   meshChunk(3).build(), meshChunk(11).build(), meshChunk(29).build(), meshChunk(5, 3).build(), meshChunk(17, 3).build(), meshChunk(41, 3).build(), meshChunk(9, 1).build(), meshCoral(0, 1).build(), meshCoral(1, 1).build(), meshChunk(5, 2, 1).build(), meshChunk(17, 2, 1).build(), meshChunk(41, 2, 1).build());
 meshes.push(...fishShapes.slice(1, 8), meshSoft(0).build(), meshSoft(1).build(),
   meshLathe([[0, 0, 0.5], [0.33, 0, 0.5], [0.37, 0.1, 0.6], [0.34, 0.22, 0.7], [0.2, 0.3, 0.6], [0, 0.31, 0.5]], 14, 0.2).build(), ...fishShapes.slice(8));
+const JELLY = meshJelly().build(); meshes.push(JELLY); // id 37
 let nV = 0, nI = 0;
 for (const m of meshes) { m.v0 = nV; m.i0 = nI; nV += m.nv; nI += m.ib.length; }
 const allV = new Uint8Array(nV * 16), allI = new Uint32Array(nI);
@@ -305,6 +309,7 @@ const ibBig = buf(new Uint8Array(Wd.big.buf), BU.VERTEX), ibBigF = buf(new Uint8
 const ibFish = buf(Wd.fish, BU.VERTEX), ibManta = buf(Wd.mantas, BU.VERTEX), ibBubbles = buf(Wd.bubbles, BU.VERTEX), ibSnowB = buf(Wd.snow, BU.VERTEX);
 const ibGl = buf(Wd.glints, BU.VERTEX), nGl = Wd.glints.length / 8;
 const nManta = Wd.mantas.length / 8, nBub = Wd.bubbles.length / 8, nSnow = Wd.snow.length / 4;
+const nJelly = Wd.jelly.length / 8, ibJelly = buf(nJelly ? Wd.jelly : new Float32Array(8), BU.VERTEX);
 const MANTA = meshes[12], NFISH = fishShapes.length, fishR = Wd.fishR;
 Q.writeTexture({ texture: tVol }, Wd.volD, { bytesPerRow: NX, rowsPerImage: NY / 2 }, [NX / 2, NY / 2, NZ / 2]);
 Q.writeTexture({ texture: tMap }, Wd.gm, { bytesPerRow: 2048 }, [512, 512]);
@@ -501,6 +506,8 @@ function render() {
   r.setPipeline(pTentF); drawCells(r, Wd.tent.start, Wd.tent.lo, Wd.tent.hi, 4, false, 8, 26, 85);
   r.setPipeline(pSurf); r.draw(4);
   r.setPipeline(pBack); r.draw(4);
+  // jellyfish: see-through, so after everything solid (and after the surface they are seen against)
+  if (nJelly) { r.setPipeline(pJelly); r.setVertexBuffer(0, vbMesh); r.setVertexBuffer(1, ibJelly); r.setIndexBuffer(ibMesh, 'uint32'); r.drawIndexed(JELLY.ib.length, nJelly, JELLY.i0, JELLY.v0, 0); }
   r.setPipeline(pBub); r.setVertexBuffer(0, ibBubbles); r.draw(4, nBub);
   r.setPipeline(pGl); r.setVertexBuffer(0, ibGl); r.draw(4, nGl);
   r.setPipeline(pSnow); r.setVertexBuffer(0, ibSnowB); r.draw(4, nSnow);

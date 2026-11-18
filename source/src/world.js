@@ -592,11 +592,24 @@ function makeWorld(D, T, flyPts, POSES) {
   // cuttlefish (2026-11-18): hovering singly a metre or two over the reef, most of them by the gardens and three where
   // the first and fourth viewpoints look. Behaviour 5; the radius is how far one drifts from its spot. They use a
   // random seed of their own, put back afterwards, so nothing placed later changes.
+  const jelly = [];
   {
     const seedBefore = _seed; rseed(20);
     const cuttle = (x, z, spread) => { const p = spot(x, z, 0.9, 2.2, 1.5, spread); if (!p) return; SPOTS.push([8, ...p]); fishAdd(8, p[0], p[1], p[2], rr(0.5, 1.3), 0, rr(0.55, 0.9), rnd(), 14, 5); };
     for (const a of [rel(0, 7, 1.5), rel(0, 11, -3), rel(3, 7, 1)]) cuttle(a[0], a[1], 3);
     for (let i = 0; i < 14; i++) { const g = GARD[(rnd() * GARD.length) | 0]; if (!(i % THIN)) cuttle(g[0], g[1], 10); }
+    // Jellyfish (2026-11-18): swarms in the open water near the surface, at the eleven places where the fixed clusters
+    // of floating boulders used to be. 8 floats each (see vsJelly): home xyz, how far it drifts | seed, bell radius,
+    // phase, kind (0 blue, 1 pink, 2 amber, 3 violet). A swarm is mostly one kind.
+    rseed(21);
+    for (const b of [[-11, -11, -105, 5], [-56, -19, -18, 6], [10, -13, -88, 7], [24, -15, -24, 7], [-18, -12, 4, 6], [30, -14, 30, 6], [36, -12, -70, 8], [-30, -13, -84, 7], [-58, -14, 0, 6], [19, -13, 98, 6], [62, -9, 34, 6]]) {
+      const kind = (rnd() * 4) | 0;
+      for (let i = 0; i < 15; i++) {
+        const size = rnd() < 0.18 ? rr(0.9, 1.4) : rr(0.3, 0.7), x = b[0] + rr(-1, 1) * b[3] * 1.1, y = b[1] + rr(-1, 1) * b[3] * 0.6, z = b[2] + rr(-1, 1) * b[3] * 1.1;
+        const k = rnd() < 0.8 ? kind : (rnd() * 4) | 0, ok = open(x, y, z, size + 2.5) && !(i % THIN);
+        if (ok) jelly.push(x, y, z, rr(1, 3), rnd(), size, rnd(), k);
+      }
+    }
     _seed = seedBefore;
   }
   const fish = [], fishR = []; { let n = 0; for (const a of fishK) { fishR.push([n, a.length / 12]); n += a.length / 12; for (let i = 0; i < a.length; i++) fish.push(a[i]); } }
@@ -618,7 +631,7 @@ function makeWorld(D, T, flyPts, POSES) {
     for (let c = 0; c < nCells; c++) { const a = L[c]; for (let i = 0; i < a.length; i += 12) { for (let j = 0; j < 12; j++) data[k++] = a[i + j]; lo[c] = min(lo[c], a[i + 1] - 3); hi[c] = max(hi[c], a[i + 1] + 3); } }
     return { data, n, start, lo, hi };
   };
-  return { gy, grown, glints: new Float32Array(glints), chunks: chunks.map(packC), props: props.map(packC), tent: packC(tent), ANEM, big: pack(big), bigF: pack(big, 2, 1.5), small: pack(small), solids: { data: new Float32Array(sol.data), ranges: sol.ranges }, bubbles: new Float32Array(bubbles), volD, gm, fish: new Float32Array(fish), fishR, BALLS, SPOTS, mantas: new Float32Array(mantas), snow };
+  return { gy, grown, jelly: new Float32Array(jelly), glints: new Float32Array(glints), chunks: chunks.map(packC), props: props.map(packC), tent: packC(tent), ANEM, big: pack(big), bigF: pack(big, 2, 1.5), small: pack(small), solids: { data: new Float32Array(sol.data), ranges: sol.ranges }, bubbles: new Float32Array(bubbles), volD, gm, fish: new Float32Array(fish), fishR, BALLS, SPOTS, mantas: new Float32Array(mantas), snow };
 }
 const fract = (x) => x - floor(x);
 
@@ -827,6 +840,35 @@ function meshFishKind(H, W, fins, pec = 0.16, R = 12) {
   return m;
 }
 // the eight fish shapes, in the order of the instance lists in makeWorld
+// Jellyfish (2026-11-18): a bell of radius 1 with its crown up (+y), the membrane under it, four frilled arms hanging
+// from the middle and sixteen thin tentacles from the rim. aux says how each vertex moves (see vsJelly): 0 to 1 is the
+// bell, crown to rim, which squeezes in with each pulse; below 0 is a hanging part, down to -1 at its tip, which sways
+// and follows the bell late.
+function meshJelly() {
+  const m = new Mesh(), SEG = 28, bell = [], under = [];
+  const ring = (r, y, aux, scallop) => { const a = []; for (let s = 0; s < SEG; s++) { const an = s / SEG * TAU, rr2 = r * (1 + scallop * cos(an * 8)); a.push(m.v(cos(an) * rr2, y, sin(an) * rr2, aux)); } return a; };
+  const skin = (rings) => { for (let k = 0; k < rings.length - 1; k++) for (let s = 0; s < SEG; s++) { const s2 = (s + 1) % SEG; m.quad(rings[k][s], rings[k][s2], rings[k + 1][s2], rings[k + 1][s]); } };
+  // the dome: a flattened hemisphere that curls in slightly at the rim, which is scalloped
+  for (let k = 1; k <= 9; k++) { const ph = k / 9 * PI * 0.57; bell.push(ring(sin(ph), cos(ph) * 0.7, k / 9, k > 7 ? 0.04 : 0)); }
+  const top = m.v(0, 0.7, 0, 0); for (let s = 0; s < SEG; s++) m.tri(top, bell[0][(s + 1) % SEG], bell[0][s]);
+  skin(bell);
+  // the membrane underneath, from the rim back up to a point inside the dome
+  under.push(bell[8]); for (let k = 1; k <= 4; k++) under.push(ring(0.97 * (1 - k / 4.6), -0.155 + 0.5 * sin(k / 4 * PI * 0.5), 1 - k / 5, 0));
+  skin(under);
+  // four frilled arms from the middle: ribbons that narrow toward the tip
+  for (let j = 0; j < 4; j++) {
+    const an = j / 4 * TAU + 0.4, cx = cos(an), cz = sin(an), rows = [];
+    for (let k = 0; k <= 10; k++) { const d = k / 10, y = 0.3 - d * 1.9, w = 0.2 * (1 - 0.75 * d), o = 0.1 + 0.08 * d; rows.push([m.v(cx * o - cz * w, y, cz * o + cx * w, -max(d, 0.02)), m.v(cx * o + cz * w, y, cz * o - cx * w, -max(d, 0.02))]); }
+    for (let k = 1; k < rows.length; k++) m.quad(rows[k - 1][0], rows[k][0], rows[k][1], rows[k - 1][1]);
+  }
+  // sixteen tentacles from the rim: thin ribbons, every other one longer
+  for (let j = 0; j < 16; j++) {
+    const an = (j + 0.5) / 16 * TAU, cx = cos(an), cz = sin(an), len = j & 1 ? 3.4 : 2.4, rows = [];
+    for (let k = 0; k <= 9; k++) { const d = k / 9, y = -0.14 - d * len, w = 0.022 * (1 - 0.6 * d); rows.push([m.v(cx * 0.94 - cz * w, y, cz * 0.94 + cx * w, -max(d, 0.02)), m.v(cx * 0.94 + cz * w, y, cz * 0.94 - cx * w, -max(d, 0.02))]); }
+    for (let k = 1; k < rows.length; k++) m.quad(rows[k - 1][0], rows[k][0], rows[k][1], rows[k - 1][1]);
+  }
+  return m;
+}
 // Cuttlefish (2026-11-18): the arm tips at +x where a fish has its nose. A flattened oval mantle with a skirt fin down
 // both sides, a head, and eight short arms held together in a cone. aux > 0 marks what ripples (fin, arms), as for fins.
 function meshCuttle() {

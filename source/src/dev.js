@@ -35,7 +35,7 @@
     fly(ft, t) { pin(); stop(); F[FLT] = ft; flyAt(); F[VX] = F[VY] = F[VZ] = 0; fixT = t >= 0 ? t : ft; },
     // camera at (x, y, z) looking at (tx, ty, tz), scene clock held at t if given
     look(x, y, z, tx, ty, tz, t) { pin(); stop(); lookAt(x, y, z, tx, ty, tz); F[VX] = F[VY] = F[VZ] = 0; if (t >= 0) fixT = t; },
-    terrain: [T.nv, T.start[T.start.length - 1]], FLY, at(t) { F[FLT] = t; flyAt(); return [F[SPL], F[CX], F[CY], F[CZ], F[YAW], F[PIT]]; }, balls: Wd.BALLS, spots: Wd.SPOTS, anemones: Wd.ANEM, fishRanges: Wd.fishR, fish: Wd.fish,
+    terrain: [T.nv, T.start[T.start.length - 1]], FLY, at(t) { F[FLT] = t; flyAt(); return [F[SPL], F[CX], F[CY], F[CZ], F[YAW], F[PIT]]; }, balls: Wd.BALLS, jellies: Wd.jelly, spots: Wd.SPOTS, anemones: Wd.ANEM, fishRanges: Wd.fishR, fish: Wd.fish,
     // What grows where (WORKSTREAM-denser-reef-life.md): counts per kind, and how much rock has nothing growing near it.
     // Rock = terrain vertices below 8 m depth within 170 m of the centre, the same ones the generator places growth on.
     // "bare" = nothing rooted within 2 m. Reef life = sponges, corals, soft corals, anemones, sea whips, polyps;

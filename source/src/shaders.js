@@ -892,6 +892,72 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
   c += alb * sky * ca * .45 * (1. - top) + sky * pow(1. - ndv, 3.) * .35;
   return fin(fog(c, i.wp, z));
 }
+// Jellyfish (2026-11-18). Instance: a = home xyz + how far it drifts, b = seed, bell radius, phase, kind. Like the
+// fish, a function of time alone. The vertex's n.w says how it moves: 0 to 1 is the bell from crown to rim, below 0 a
+// hanging part down to -1 at its tip (see meshJelly). Drawn see-through after everything solid, with no depth written.
+struct JO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n: vec3f, @location(2) op: vec4f, @location(3) @interpolate(flat) sd: vec3f, @location(4) lt: f32 };
+// How much of its own light a jellyfish gives off. A fifth in daylight (2026-11-18): at full strength every one was
+// equally bright in sun and in shade, which made them look laid over the picture. The night dive should raise this.
+const JGLOW = .2;
+@vertex fn vsJelly(i: VI) -> JO {
+  var o: JO;
+  let t = g.cam.w; let R = i.a.w; let s = i.b.x; let sz = i.b.y; let ph = i.b.z;
+  // the pulse: slower for a bigger bell; a quick squeeze and a slow opening
+  let pp = t * (2.6 / (.5 + sz)) + ph * TAU; let sq = pow(.5 + .5 * sin(pp), 3.);
+  // drifting round its home, rising and sinking over minutes, with a small surge after each squeeze
+  var P = i.a.xyz + vec3f(R * cos(t * .03 + ph * 5.), 1.5 * sin(t * .05 + ph * 9.) + .14 * sz * sin(pp - 1.), R * sin(t * .027 + ph * 7.));
+  // the viewer eases it aside, and it never sits on the lens
+  { let dv = P - g.cam.xyz; let lv = length(dv); let rv = 2. + sz; P += dv / max(lv, .01) * (1.6 * exp(-lv * lv / (rv * rv)) + max(sz + .9 - lv, 0.)); }
+  // beyond 110 m the water hides it: put it outside the view so nothing is drawn for it
+  if (distance(P, g.cam.xyz) > 110.) { o.cp = vec4f(2., 2., 2., 1.); return o; }
+  // nearly upright, leaning a little this way and that
+  let Up = normalize(vec3f(.16 * sin(t * .2 + s * 30.), 1., .16 * cos(t * .17 + s * 17.)));
+  let X = normalize(cross(Up, vec3f(0., 0., 1.))); let Z = cross(X, Up);
+  let au = i.n.w; var l = i.p;
+  if (au >= 0.) { // the bell: the rim pulls in and the dome lengthens
+    let k = au * au; l.x *= 1. - .3 * sq * k; l.z *= 1. - .3 * sq * k; l.y += .12 * sq * k;
+  } else { // hanging parts: gathered in at the root with the rim, swaying more toward the tip, following each pulse late
+    let d = -au; let k = 1. - d;
+    l.x = l.x * (1. - .3 * sq * k) + sin(t * .9 + d * 4. + s * 31. + i.p.z * 5.) * .28 * d * d;
+    l.z = l.z * (1. - .3 * sq * k) + cos(t * .8 + d * 4.6 + s * 17. + i.p.x * 5.) * .28 * d * d;
+    l.y += .22 * sin(pp - 1.2 - d * 2.5) * d;
+  }
+  let w = P + (X * l.x + Up * l.y + Z * l.z) * sz;
+  o.cp = g.vp * vec4f(w, 1.); o.wp = w; o.n = X * i.n.x + Up * i.n.y + Z * i.n.z; o.op = vec4f(i.p, au); o.sd = vec3f(s, i.b.w, sq);
+  o.lt = shadow1(w); // in the shadow of a cliff or of kelp it goes dark, like the fish
+  return o;
+}
+@fragment fn fsJelly(i: JO) -> @location(0) vec4f {
+  let V = normalize(g.cam.xyz - i.wp); let L = g.sun.xyz;
+  let ca = caus2(i.wp, distance(g.cam.xyz, i.wp)); // the same rippling light that plays over everything else
+  let n0 = normalize(i.n); // which way the surface really faces, for the sun: the crown of the bell faces up
+  var n = n0; if (dot(n, V) < 0.) { n = -n; }
+  let ndv = sat(dot(n, V)); let fr = pow(1. - ndv, 2.); // a membrane: thin seen face-on, denser toward its edges
+  let au = i.op.w; let s = i.sd.x; let sq = i.sd.z;
+  var col = vec3f(.35, .75, 1.); var glow = vec3f(.2, .8, 1.);
+  if (i.sd.y > .5) { col = vec3f(1., .45, .75); glow = vec3f(1., .35, .8); }
+  if (i.sd.y > 1.5) { col = vec3f(1., .7, .3); glow = vec3f(1., .55, .15); }
+  if (i.sd.y > 2.5) { col = vec3f(.65, .45, 1.); glow = vec3f(.6, .4, 1.); }
+  var a = 0.; var emi = vec3f(0.);
+  if (au >= 0.) { // the bell: sixteen canals from crown to rim that brighten with each squeeze, and a ring of lights
+    let ang = atan2(i.op.z, i.op.x);
+    let rib = ss(.75, 1., .5 + .5 * cos(ang * 16.)) * ss(.15, .9, au); let rim = ss(.86, 1., au);
+    let dots = rim * ss(.6, .95, .5 + .5 * cos(ang * 32.));
+    a = .12 + .5 * fr + .25 * rib + .3 * rim;
+    emi = glow * (.14 + .7 * rib * (.4 + .6 * sq) + 1.4 * dots * (.5 + .5 * sin(g.cam.w * 2. + ang * 3. + s * 40.)) + .35 * fr);
+  } else { // hanging parts thin out toward their tips
+    let d = -au; a = .5 * (1. - .6 * d); emi = glow * (.15 + .25 * (1. - d));
+  }
+  let z = zone(i.wp); let vv = vol(i.wp); let ndl = dot(n0, L);
+  // Lit by the scene (2026-11-18): the sun reaches it only out of shadow and carries the ripple; the side toward the
+  // sun is brightest, with some light coming through from behind; the underside and the hanging parts are dimmer; the
+  // skylight is cut near walls and in enclosed places, as for the fish. Its own light is a small addition.
+  let E = sunE(i.wp.y, z) * i.lt * (.5 + .5 * ca);
+  let dim = select(mix(1., .7, au), .6, au < 0.);
+  var c = col * (E * (.2 + .6 * sat(ndl) + .25 * sat(-ndl)) * dim + amb(i.wp, n, vv.g, z) * (.3 + .6 * sat((vv.r - .5) * 2.7)) * 1.2) + emi * JGLOW;
+  a = sat(a);
+  return vec4f(min(fog(c, i.wp, z), vec3f(40.)) * a, a); // premultiplied for the blend
+}
 `;
 
 // ---------------------------------------------------------------- water surface seen from below

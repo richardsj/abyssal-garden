@@ -1278,6 +1278,72 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
   c += alb * sky * ca * .45 * (1. - top) + sky * pow(1. - ndv, 3.) * .35;
   return fin(fog(c, i.wp, z));
 }
+// Jellyfish (2026-11-18). Instance: a = home xyz + how far it drifts, b = seed, bell radius, phase, kind. Like the
+// fish, a function of time alone. The vertex's n.w says how it moves: 0 to 1 is the bell from crown to rim, below 0 a
+// hanging part down to -1 at its tip (see meshJelly). Drawn see-through after everything solid, with no depth written.
+struct JO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n: vec3f, @location(2) op: vec4f, @location(3) @interpolate(flat) sd: vec3f, @location(4) lt: f32 };
+// How much of its own light a jellyfish gives off. A fifth in daylight (2026-11-18): at full strength every one was
+// equally bright in sun and in shade, which made them look laid over the picture. The night dive should raise this.
+const JGLOW = .2;
+@vertex fn vsJelly(i: VI) -> JO {
+  var o: JO;
+  let t = g.cam.w; let R = i.a.w; let s = i.b.x; let sz = i.b.y; let ph = i.b.z;
+  // the pulse: slower for a bigger bell; a quick squeeze and a slow opening
+  let pp = t * (2.6 / (.5 + sz)) + ph * TAU; let sq = pow(.5 + .5 * sin(pp), 3.);
+  // drifting round its home, rising and sinking over minutes, with a small surge after each squeeze
+  var P = i.a.xyz + vec3f(R * cos(t * .03 + ph * 5.), 1.5 * sin(t * .05 + ph * 9.) + .14 * sz * sin(pp - 1.), R * sin(t * .027 + ph * 7.));
+  // the viewer eases it aside, and it never sits on the lens
+  { let dv = P - g.cam.xyz; let lv = length(dv); let rv = 2. + sz; P += dv / max(lv, .01) * (1.6 * exp(-lv * lv / (rv * rv)) + max(sz + .9 - lv, 0.)); }
+  // beyond 110 m the water hides it: put it outside the view so nothing is drawn for it
+  if (distance(P, g.cam.xyz) > 110.) { o.cp = vec4f(2., 2., 2., 1.); return o; }
+  // nearly upright, leaning a little this way and that
+  let Up = normalize(vec3f(.16 * sin(t * .2 + s * 30.), 1., .16 * cos(t * .17 + s * 17.)));
+  let X = normalize(cross(Up, vec3f(0., 0., 1.))); let Z = cross(X, Up);
+  let au = i.n.w; var l = i.p;
+  if (au >= 0.) { // the bell: the rim pulls in and the dome lengthens
+    let k = au * au; l.x *= 1. - .3 * sq * k; l.z *= 1. - .3 * sq * k; l.y += .12 * sq * k;
+  } else { // hanging parts: gathered in at the root with the rim, swaying more toward the tip, following each pulse late
+    let d = -au; let k = 1. - d;
+    l.x = l.x * (1. - .3 * sq * k) + sin(t * .9 + d * 4. + s * 31. + i.p.z * 5.) * .28 * d * d;
+    l.z = l.z * (1. - .3 * sq * k) + cos(t * .8 + d * 4.6 + s * 17. + i.p.x * 5.) * .28 * d * d;
+    l.y += .22 * sin(pp - 1.2 - d * 2.5) * d;
+  }
+  let w = P + (X * l.x + Up * l.y + Z * l.z) * sz;
+  o.cp = g.vp * vec4f(w, 1.); o.wp = w; o.n = X * i.n.x + Up * i.n.y + Z * i.n.z; o.op = vec4f(i.p, au); o.sd = vec3f(s, i.b.w, sq);
+  o.lt = shadow1(w); // in the shadow of a cliff or of kelp it goes dark, like the fish
+  return o;
+}
+@fragment fn fsJelly(i: JO) -> @location(0) vec4f {
+  let V = normalize(g.cam.xyz - i.wp); let L = g.sun.xyz;
+  let ca = caus2(i.wp, distance(g.cam.xyz, i.wp)); // the same rippling light that plays over everything else
+  let n0 = normalize(i.n); // which way the surface really faces, for the sun: the crown of the bell faces up
+  var n = n0; if (dot(n, V) < 0.) { n = -n; }
+  let ndv = sat(dot(n, V)); let fr = pow(1. - ndv, 2.); // a membrane: thin seen face-on, denser toward its edges
+  let au = i.op.w; let s = i.sd.x; let sq = i.sd.z;
+  var col = vec3f(.35, .75, 1.); var glow = vec3f(.2, .8, 1.);
+  if (i.sd.y > .5) { col = vec3f(1., .45, .75); glow = vec3f(1., .35, .8); }
+  if (i.sd.y > 1.5) { col = vec3f(1., .7, .3); glow = vec3f(1., .55, .15); }
+  if (i.sd.y > 2.5) { col = vec3f(.65, .45, 1.); glow = vec3f(.6, .4, 1.); }
+  var a = 0.; var emi = vec3f(0.);
+  if (au >= 0.) { // the bell: sixteen canals from crown to rim that brighten with each squeeze, and a ring of lights
+    let ang = atan2(i.op.z, i.op.x);
+    let rib = ss(.75, 1., .5 + .5 * cos(ang * 16.)) * ss(.15, .9, au); let rim = ss(.86, 1., au);
+    let dots = rim * ss(.6, .95, .5 + .5 * cos(ang * 32.));
+    a = .12 + .5 * fr + .25 * rib + .3 * rim;
+    emi = glow * (.14 + .7 * rib * (.4 + .6 * sq) + 1.4 * dots * (.5 + .5 * sin(g.cam.w * 2. + ang * 3. + s * 40.)) + .35 * fr);
+  } else { // hanging parts thin out toward their tips
+    let d = -au; a = .5 * (1. - .6 * d); emi = glow * (.15 + .25 * (1. - d));
+  }
+  let z = zone(i.wp); let vv = vol(i.wp); let ndl = dot(n0, L);
+  // Lit by the scene (2026-11-18): the sun reaches it only out of shadow and carries the ripple; the side toward the
+  // sun is brightest, with some light coming through from behind; the underside and the hanging parts are dimmer; the
+  // skylight is cut near walls and in enclosed places, as for the fish. Its own light is a small addition.
+  let E = sunE(i.wp.y, z) * i.lt * (.5 + .5 * ca);
+  let dim = select(mix(1., .7, au), .6, au < 0.);
+  var c = col * (E * (.2 + .6 * sat(ndl) + .25 * sat(-ndl)) * dim + amb(i.wp, n, vv.g, z) * (.3 + .6 * sat((vv.r - .5) * 2.7)) * 1.2) + emi * JGLOW;
+  a = sat(a);
+  return vec4f(min(fog(c, i.wp, z), vec3f(40.)) * a, a); // premultiplied for the blend
+}
 `;
 
 // ---------------------------------------------------------------- water surface seen from below
@@ -2079,11 +2145,24 @@ function makeWorld(D, T, flyPts, POSES) {
   // cuttlefish (2026-11-18): hovering singly a metre or two over the reef, most of them by the gardens and three where
   // the first and fourth viewpoints look. Behaviour 5; the radius is how far one drifts from its spot. They use a
   // random seed of their own, put back afterwards, so nothing placed later changes.
+  const jelly = [];
   {
     const seedBefore = _seed; rseed(20);
     const cuttle = (x, z, spread) => { const p = spot(x, z, 0.9, 2.2, 1.5, spread); if (!p) return; SPOTS.push([8, ...p]); fishAdd(8, p[0], p[1], p[2], rr(0.5, 1.3), 0, rr(0.55, 0.9), rnd(), 14, 5); };
     for (const a of [rel(0, 7, 1.5), rel(0, 11, -3), rel(3, 7, 1)]) cuttle(a[0], a[1], 3);
     for (let i = 0; i < 14; i++) { const g = GARD[(rnd() * GARD.length) | 0]; if (!(i % THIN)) cuttle(g[0], g[1], 10); }
+    // Jellyfish (2026-11-18): swarms in the open water near the surface, at the eleven places where the fixed clusters
+    // of floating boulders used to be. 8 floats each (see vsJelly): home xyz, how far it drifts | seed, bell radius,
+    // phase, kind (0 blue, 1 pink, 2 amber, 3 violet). A swarm is mostly one kind.
+    rseed(21);
+    for (const b of [[-11, -11, -105, 5], [-56, -19, -18, 6], [10, -13, -88, 7], [24, -15, -24, 7], [-18, -12, 4, 6], [30, -14, 30, 6], [36, -12, -70, 8], [-30, -13, -84, 7], [-58, -14, 0, 6], [19, -13, 98, 6], [62, -9, 34, 6]]) {
+      const kind = (rnd() * 4) | 0;
+      for (let i = 0; i < 15; i++) {
+        const size = rnd() < 0.18 ? rr(0.9, 1.4) : rr(0.3, 0.7), x = b[0] + rr(-1, 1) * b[3] * 1.1, y = b[1] + rr(-1, 1) * b[3] * 0.6, z = b[2] + rr(-1, 1) * b[3] * 1.1;
+        const k = rnd() < 0.8 ? kind : (rnd() * 4) | 0, ok = open(x, y, z, size + 2.5) && !(i % THIN);
+        if (ok) jelly.push(x, y, z, rr(1, 3), rnd(), size, rnd(), k);
+      }
+    }
     _seed = seedBefore;
   }
   const fish = [], fishR = []; { let n = 0; for (const a of fishK) { fishR.push([n, a.length / 12]); n += a.length / 12; for (let i = 0; i < a.length; i++) fish.push(a[i]); } }
@@ -2105,7 +2184,7 @@ function makeWorld(D, T, flyPts, POSES) {
     for (let c = 0; c < nCells; c++) { const a = L[c]; for (let i = 0; i < a.length; i += 12) { for (let j = 0; j < 12; j++) data[k++] = a[i + j]; lo[c] = min(lo[c], a[i + 1] - 3); hi[c] = max(hi[c], a[i + 1] + 3); } }
     return { data, n, start, lo, hi };
   };
-  return { gy, grown, glints: new Float32Array(glints), chunks: chunks.map(packC), props: props.map(packC), tent: packC(tent), ANEM, big: pack(big), bigF: pack(big, 2, 1.5), small: pack(small), solids: { data: new Float32Array(sol.data), ranges: sol.ranges }, bubbles: new Float32Array(bubbles), volD, gm, fish: new Float32Array(fish), fishR, BALLS, SPOTS, mantas: new Float32Array(mantas), snow };
+  return { gy, grown, jelly: new Float32Array(jelly), glints: new Float32Array(glints), chunks: chunks.map(packC), props: props.map(packC), tent: packC(tent), ANEM, big: pack(big), bigF: pack(big, 2, 1.5), small: pack(small), solids: { data: new Float32Array(sol.data), ranges: sol.ranges }, bubbles: new Float32Array(bubbles), volD, gm, fish: new Float32Array(fish), fishR, BALLS, SPOTS, mantas: new Float32Array(mantas), snow };
 }
 const fract = (x) => x - floor(x);
 
@@ -2314,6 +2393,35 @@ function meshFishKind(H, W, fins, pec = 0.16, R = 12) {
   return m;
 }
 // the eight fish shapes, in the order of the instance lists in makeWorld
+// Jellyfish (2026-11-18): a bell of radius 1 with its crown up (+y), the membrane under it, four frilled arms hanging
+// from the middle and sixteen thin tentacles from the rim. aux says how each vertex moves (see vsJelly): 0 to 1 is the
+// bell, crown to rim, which squeezes in with each pulse; below 0 is a hanging part, down to -1 at its tip, which sways
+// and follows the bell late.
+function meshJelly() {
+  const m = new Mesh(), SEG = 28, bell = [], under = [];
+  const ring = (r, y, aux, scallop) => { const a = []; for (let s = 0; s < SEG; s++) { const an = s / SEG * TAU, rr2 = r * (1 + scallop * cos(an * 8)); a.push(m.v(cos(an) * rr2, y, sin(an) * rr2, aux)); } return a; };
+  const skin = (rings) => { for (let k = 0; k < rings.length - 1; k++) for (let s = 0; s < SEG; s++) { const s2 = (s + 1) % SEG; m.quad(rings[k][s], rings[k][s2], rings[k + 1][s2], rings[k + 1][s]); } };
+  // the dome: a flattened hemisphere that curls in slightly at the rim, which is scalloped
+  for (let k = 1; k <= 9; k++) { const ph = k / 9 * PI * 0.57; bell.push(ring(sin(ph), cos(ph) * 0.7, k / 9, k > 7 ? 0.04 : 0)); }
+  const top = m.v(0, 0.7, 0, 0); for (let s = 0; s < SEG; s++) m.tri(top, bell[0][(s + 1) % SEG], bell[0][s]);
+  skin(bell);
+  // the membrane underneath, from the rim back up to a point inside the dome
+  under.push(bell[8]); for (let k = 1; k <= 4; k++) under.push(ring(0.97 * (1 - k / 4.6), -0.155 + 0.5 * sin(k / 4 * PI * 0.5), 1 - k / 5, 0));
+  skin(under);
+  // four frilled arms from the middle: ribbons that narrow toward the tip
+  for (let j = 0; j < 4; j++) {
+    const an = j / 4 * TAU + 0.4, cx = cos(an), cz = sin(an), rows = [];
+    for (let k = 0; k <= 10; k++) { const d = k / 10, y = 0.3 - d * 1.9, w = 0.2 * (1 - 0.75 * d), o = 0.1 + 0.08 * d; rows.push([m.v(cx * o - cz * w, y, cz * o + cx * w, -max(d, 0.02)), m.v(cx * o + cz * w, y, cz * o - cx * w, -max(d, 0.02))]); }
+    for (let k = 1; k < rows.length; k++) m.quad(rows[k - 1][0], rows[k][0], rows[k][1], rows[k - 1][1]);
+  }
+  // sixteen tentacles from the rim: thin ribbons, every other one longer
+  for (let j = 0; j < 16; j++) {
+    const an = (j + 0.5) / 16 * TAU, cx = cos(an), cz = sin(an), len = j & 1 ? 3.4 : 2.4, rows = [];
+    for (let k = 0; k <= 9; k++) { const d = k / 9, y = -0.14 - d * len, w = 0.022 * (1 - 0.6 * d); rows.push([m.v(cx * 0.94 - cz * w, y, cz * 0.94 + cx * w, -max(d, 0.02)), m.v(cx * 0.94 + cz * w, y, cz * 0.94 - cx * w, -max(d, 0.02))]); }
+    for (let k = 1; k < rows.length; k++) m.quad(rows[k - 1][0], rows[k][0], rows[k][1], rows[k - 1][1]);
+  }
+  return m;
+}
 // Cuttlefish (2026-11-18): the arm tips at +x where a fish has its nose. A flattened oval mantle with a skirt fin down
 // both sides, a head, and eight short arms held together in a cone. aux > 0 marks what ripples (fin, arms), as for fins.
 function meshCuttle() {
@@ -2487,7 +2595,10 @@ const pFish = scenePipe(mAnim, 'vsFish', 'fsFish', [vbSolid, ibSolid]);
 const pTent = scenePipe(mTent, 'vs', 'fs', [ibSolid], { strip: true, constants: { ROWS: 12 } }), pTentF = scenePipe(mTent, 'vs', 'fs', [ibSolid], { strip: true, constants: { ROWS: 4 } });
 const pManta = scenePipe(mAnim, 'vsManta', 'fsManta', [vbSolid, ibAnim]);
 const pSurf = scenePipe(mSurf, 'vs', 'fs', [], { strip: true }), pBack = scenePipe(mSurf, 'vsB', 'fsB', [], { strip: true });
-const pBub = scenePipe(mSpr, 'vsBub', 'fsBub', [ibBub], { strip: true, blend: { color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } } });
+// see-through things are drawn over what is behind them (colour already multiplied by its opacity) and write no depth
+const OVER = { color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } };
+const pBub = scenePipe(mSpr, 'vsBub', 'fsBub', [ibBub], { strip: true, blend: OVER });
+const pJelly = scenePipe(mAnim, 'vsJelly', 'fsJelly', [vbSolid, ibAnim], { blend: OVER });
 const ADD = { color: { srcFactor: 'one', dstFactor: 'one' }, alpha: { srcFactor: 'one', dstFactor: 'one' } };
 const pSnow = scenePipe(mSpr, 'vsSnow', 'fsSnow', [ibSnow], { strip: true, blend: ADD });
 const pGl = scenePipe(mLeaf, 'vsGl', 'fsGl', [ibBub], { strip: true, blend: ADD, constants: { ROWS: 7 } });
@@ -2659,7 +2770,7 @@ D = Wd.gy = T.smp = null; // with gy goes the generator's working memory (about 
 await say('Building set pieces…', 0.94, 1200);
 // mesh ids: 0-3 boulders, 4-6 sponges, 7-8 coral, 9 tube sponge, 10 whale fluke, 11 ship, 12 manta, 13 bait fish,
 // 14-20 rock chunks + pebbles, 21-22 coral LOD, 23-25 far LOD of the large rock chunks, 26-32 the other fish,
-// 33-34 soft coral, 35 anemone column, 36 cuttlefish. The ids up to 35 are used by number elsewhere (PROPM, solid(),
+// 33-34 soft coral, 35 anemone column, 36 cuttlefish, 37 jellyfish. The ids up to 35 are used by number elsewhere (PROPM, solid(),
 // the LOD offsets), so a new shape goes on the end.
 const fishShapes = meshFishes().map((m) => m.build());
 const meshes = [meshChunk(1, 3), meshChunk(7, 3), meshChunk(13, 3), meshChunk(22, 3),
@@ -2671,6 +2782,7 @@ meshes.push(meshFluke(), meshShip().build(), meshManta().build(), fishShapes[0],
   meshChunk(3).build(), meshChunk(11).build(), meshChunk(29).build(), meshChunk(5, 3).build(), meshChunk(17, 3).build(), meshChunk(41, 3).build(), meshChunk(9, 1).build(), meshCoral(0, 1).build(), meshCoral(1, 1).build(), meshChunk(5, 2, 1).build(), meshChunk(17, 2, 1).build(), meshChunk(41, 2, 1).build());
 meshes.push(...fishShapes.slice(1, 8), meshSoft(0).build(), meshSoft(1).build(),
   meshLathe([[0, 0, 0.5], [0.33, 0, 0.5], [0.37, 0.1, 0.6], [0.34, 0.22, 0.7], [0.2, 0.3, 0.6], [0, 0.31, 0.5]], 14, 0.2).build(), ...fishShapes.slice(8));
+const JELLY = meshJelly().build(); meshes.push(JELLY); // id 37
 let nV = 0, nI = 0;
 for (const m of meshes) { m.v0 = nV; m.i0 = nI; nV += m.nv; nI += m.ib.length; }
 const allV = new Uint8Array(nV * 16), allI = new Uint32Array(nI);
@@ -2685,6 +2797,7 @@ const ibBig = buf(new Uint8Array(Wd.big.buf), BU.VERTEX), ibBigF = buf(new Uint8
 const ibFish = buf(Wd.fish, BU.VERTEX), ibManta = buf(Wd.mantas, BU.VERTEX), ibBubbles = buf(Wd.bubbles, BU.VERTEX), ibSnowB = buf(Wd.snow, BU.VERTEX);
 const ibGl = buf(Wd.glints, BU.VERTEX), nGl = Wd.glints.length / 8;
 const nManta = Wd.mantas.length / 8, nBub = Wd.bubbles.length / 8, nSnow = Wd.snow.length / 4;
+const nJelly = Wd.jelly.length / 8, ibJelly = buf(nJelly ? Wd.jelly : new Float32Array(8), BU.VERTEX);
 const MANTA = meshes[12], NFISH = fishShapes.length, fishR = Wd.fishR;
 Q.writeTexture({ texture: tVol }, Wd.volD, { bytesPerRow: NX, rowsPerImage: NY / 2 }, [NX / 2, NY / 2, NZ / 2]);
 Q.writeTexture({ texture: tMap }, Wd.gm, { bytesPerRow: 2048 }, [512, 512]);
@@ -2881,6 +2994,8 @@ function render() {
   r.setPipeline(pTentF); drawCells(r, Wd.tent.start, Wd.tent.lo, Wd.tent.hi, 4, false, 8, 26, 85);
   r.setPipeline(pSurf); r.draw(4);
   r.setPipeline(pBack); r.draw(4);
+  // jellyfish: see-through, so after everything solid (and after the surface they are seen against)
+  if (nJelly) { r.setPipeline(pJelly); r.setVertexBuffer(0, vbMesh); r.setVertexBuffer(1, ibJelly); r.setIndexBuffer(ibMesh, 'uint32'); r.drawIndexed(JELLY.ib.length, nJelly, JELLY.i0, JELLY.v0, 0); }
   r.setPipeline(pBub); r.setVertexBuffer(0, ibBubbles); r.draw(4, nBub);
   r.setPipeline(pGl); r.setVertexBuffer(0, ibGl); r.draw(4, nGl);
   r.setPipeline(pSnow); r.setVertexBuffer(0, ibSnowB); r.draw(4, nSnow);
@@ -3153,7 +3268,7 @@ document.addEventListener('visibilitychange', () => { if (AC) document.hidden ? 
     fly(ft, t) { pin(); stop(); F[FLT] = ft; flyAt(); F[VX] = F[VY] = F[VZ] = 0; fixT = t >= 0 ? t : ft; },
     // camera at (x, y, z) looking at (tx, ty, tz), scene clock held at t if given
     look(x, y, z, tx, ty, tz, t) { pin(); stop(); lookAt(x, y, z, tx, ty, tz); F[VX] = F[VY] = F[VZ] = 0; if (t >= 0) fixT = t; },
-    terrain: [T.nv, T.start[T.start.length - 1]], FLY, at(t) { F[FLT] = t; flyAt(); return [F[SPL], F[CX], F[CY], F[CZ], F[YAW], F[PIT]]; }, balls: Wd.BALLS, spots: Wd.SPOTS, anemones: Wd.ANEM, fishRanges: Wd.fishR, fish: Wd.fish,
+    terrain: [T.nv, T.start[T.start.length - 1]], FLY, at(t) { F[FLT] = t; flyAt(); return [F[SPL], F[CX], F[CY], F[CZ], F[YAW], F[PIT]]; }, balls: Wd.BALLS, jellies: Wd.jelly, spots: Wd.SPOTS, anemones: Wd.ANEM, fishRanges: Wd.fishR, fish: Wd.fish,
     // What grows where (WORKSTREAM-denser-reef-life.md): counts per kind, and how much rock has nothing growing near it.
     // Rock = terrain vertices below 8 m depth within 170 m of the centre, the same ones the generator places growth on.
     // "bare" = nothing rooted within 2 m. Reef life = sponges, corals, soft corals, anemones, sea whips, polyps;

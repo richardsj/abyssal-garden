@@ -150,7 +150,40 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
   the opening scene "didn't move away" and said curious-but-cautious behaviour can be defined "whenever it suits".
   Cause: the retreat is deliberately small (about 0.5 m at 3 m). Doing it properly (drift toward a still diver, back
   off from a fast one) needs the camera's speed passed to the fish shader, which has only its position today.
-- Queue after those: curious-but-cautious cuttlefish; the waves (real swell and a wind-driven pattern first, then light tied to the waves); the
+- 2026-11-18: jellyfish built, NOT yet approved or committed. 137 in eleven swarms where the fixed floating-rock
+  clusters were; the first see-through geometry in the scene (drawn after everything solid, no depth written); mesh
+  id 37. Level with the build without them once those beyond 110 m are skipped (10.41 against 10.38 ms, same window).
+  Report: `test-probe-steps/20261118_1400-jellyfish/REPORT.md`. Next: the night dive.
+- 2026-11-18: owner's feedback on the jellyfish. Movement: "pleasing pulsing, but lacking a little bit of ...
+  height movement with each thrust" (the lift per pulse is 14% of the bell radius and symmetric; make it a real
+  thrust, as its own step). Rendering: "they do look a bit like sprites ... I'm not really in this scene, I'm just
+  layered on"; the owner suspects drawing order or how see-through they are. Claude's main proposal: they do not
+  take part in the scene's light (no shadow, no caustics, a constant glow of their own); then the order inside each
+  jellyfish; then translucency. Rule for now: change one factor at a time. A blind critic was asked first.
+- 2026-11-18: blind critic on the jellyfish. It agrees they look layered on; its most important cue is the light
+  (medium confidence: it could not separate that from the "coloured filter" translucency in stills). New from the
+  critic: they cast no shadow, all hang level with parallel tentacles, and tentacles of out-of-frame jellyfish cross
+  the picture as pale lines. `test-probe-steps/20261118_1400-jellyfish/CRITIC_REPORT.md`.
+- Rule from now on (owner asked on 2026-11-18 whether critic prompts were being saved; they were not): every critic
+  run saves `CRITIC_PROMPT.md` (the prompt word for word, what the critic was and was not told, which pictures)
+  next to `CRITIC_REPORT.md`. The six prompts of 2026-11-16 were recovered from that session's transcript with
+  `_scratch/extract-critic-prompts-from-session-transcript.mjs` and filed in their round folders.
+- 2026-11-18: a second opinion from another model, on the montage of the critic set, supplied by the owner
+  (`test-probe-steps/20261118_1400-jellyfish/CRITIC_REPORT_2_other-model-on-the-montage.md`; its prompt is not
+  known). Jellyfish: "not simply pasted on" but "diagrammatic", with similar brightness across a group; "more glow
+  would amplify their current weakness". Its strongest mismatch is the golden hunters (flat, toy-like: the first
+  critic flagged them too), then angular close-up kelp leaves. It also finds the views too busy, with sparkle spread
+  too evenly, which runs against this workstream's direction: the owner's call.
+- 2026-11-18: jellyfish lighting changed, as the first single factor (owner: "I also weigh the second review less,
+  let's make the jellyfish lighting"). Shadow and caustic ripple on them, a lit crown and dimmer underside, own glow
+  to a fifth (`JGLOW`). Built, NOT approved or committed. In stills they now respond to shade, but the big close
+  bells show the "coloured filter" look more plainly. See the end of the jellyfish REPORT.
+- Backlog from the two critics (not decided): shading of the golden hunters; angular close-up kelp leaves; quieter
+  areas and more selective light; jellyfish that cast shadows, tilt, and vary in how much structure shows.
+- Backlog (owner, 2026-11-18, "not yet, later"): the caustic pattern "looks a little too much like a small
+  chessboard and not enough like the strange swirls and spikes of light that come from waves in multiple angles on
+  the surface".
+- Queue after those: curious-but-cautious cuttlefish; the caustic pattern; the waves (real swell and a wind-driven pattern first, then light tied to the waves); the
   owner may suggest water values of their own.
 - 2026-11-18: benchmark method. The reading depends on how much of the browser window is on screen (a run during
   which the owner resized the window to fit the screen read 17 ms against 8-9 ms). Keep the window as it is for

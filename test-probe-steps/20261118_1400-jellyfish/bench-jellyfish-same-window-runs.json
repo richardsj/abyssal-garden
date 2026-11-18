@@ -1,0 +1,9 @@
+{
+  "note": "Benchmark flights on 2026-11-18 about 13:46-13:53, all in one browser window left untouched (outer size 1200x994 on a 1736x1133 screen), viewport emulated at 2560x1440x1, detail High. Values as returned by window.dev.result (gpu, frame average, frame count). 'before jellyfish' is bench.html at commit 4594e38 (cuttlefish, no jellyfish). The first run was taken while something else was loading the machine and is not a result.",
+  "runs": [
+    { "order": 1, "build": "before jellyfish", "discard": "machine under other load (window system 68% of a core, WiFi Explorer 58%, a file transfer running)", "gpu": { "n": 1758, "avg": 37.19324572664072, "p99": 192.7413787841797, "max": 210.63270568847656, "over16_7": 1548 }, "frameAvg": 39.09886238952003, "frames": 1758 },
+    { "order": 2, "build": "with 137 jellyfish, all drawn", "gpu": { "n": 4778, "avg": 11.727583534101804, "p99": 16.318464279174805, "max": 19.726335525512695, "over16_7": 36 }, "frameAvg": 12.558643889956118, "frames": 4778 },
+    { "order": 3, "build": "before jellyfish", "gpu": { "n": 5341, "avg": 10.382725777685854, "p99": 14.87667179107666, "max": 36.70016098022461, "over16_7": 1 }, "frameAvg": 11.234263325201798, "frames": 5341 },
+    { "order": 4, "build": "with 137 jellyfish, those beyond 110 m skipped (final)", "gpu": { "n": 5343, "avg": 10.406093838374177, "p99": 14.483455657958984, "max": 135.13523864746094, "over16_7": 5 }, "frameAvg": 11.238162173328831, "frames": 5343 }
+  ]
+}
