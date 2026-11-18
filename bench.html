@@ -577,9 +577,13 @@ const WK = array<vec3f, 10>(vec3f(1., 2., 1.), vec3f(-2., 1., .9), vec3f(3., 1.,
 // ---------------------------------------------------------------- shared scene code
 const S_G = /*wgsl*/`
 struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: vec4f, sun: vec4f, res: vec4f, mis: vec4f };
-const SIG = vec3f(.058, .0296, .0186);
-const KD = vec3f(.056, .0288, .0164);
-const WCOL = vec3f(.085, .43, .96);
+// Water: SIG = how fast red, green, blue fade per metre you look through; KD = how fast sunlight dims per metre of
+// depth (keep SIG > KD in every channel: fogIn() divides by SIG - KD * rd.y); WCOL = what the distance fades into.
+// "Clear sapphire", chosen from a palette of five on 2026-11-18 (test-probe-steps/20261118_1235-water-colour-palette):
+// about 1.6 times clearer than the water before it (.058, .0296, .0186 / .056, .0288, .0164 / .085, .43, .96).
+const SIG = vec3f(.036, .0185, .0105);
+const KD = vec3f(.034, .0178, .0095);
+const WCOL = vec3f(.06, .36, .98);
 const KDZ = vec3f(.034, .023, .018);
 const PCOL = vec3f(.44, .40, .96);
 const SUNC = vec3f(1.66, 1.6, 1.56);
@@ -645,7 +649,7 @@ fn sunE(y: f32, z: f32) -> vec3f { return SUNC * exp(kd(z) * (min(y, 0.) / g.sun
 fn vol(p: vec3f) -> vec4f { return textureSampleLevel(tV, sC, (p - vec3f(-192., -56., -192.)) / vec3f(384., 60., 384.), 0.); }
 fn amb(p: vec3f, n: vec3f, sky: f32, z: f32) -> vec3f {
   let up = n.y * .5 + .5;
-  return mix(vec3f(.18, .54, .86), vec3f(.34, .56, .82), z) * exp(kd(z) * min(p.y, 0.) * 1.2) * (.3 + .7 * sky) * (.24 + .76 * up * up) * 1.3 * (.55 + .45 * sat(-p.y / 30.)) + vec3f(.012, .034, .058);
+  return mix(vec3f(.16, .48, .88), vec3f(.34, .56, .82), z) * exp(kd(z) * min(p.y, 0.) * 1.2) * (.3 + .7 * sky) * (.24 + .76 * up * up) * 1.3 * (.55 + .45 * sat(-p.y / 30.)) + vec3f(.012, .034, .058);
 }
 fn zone(p: vec3f) -> f32 { return mix(g.sun.w, textureSampleLevel(tM, sC, p.xz / 384. + .5, 0.).b, .2); }
 fn side(p: vec3f, n: vec3f, open: f32, z: f32) -> vec3f { return mix(WCOL, PCOL, z) * exp(kd(z) * min(p.y, 0.)) * open * (1. - abs(n.y)) * .7; }
@@ -1246,7 +1250,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f };
   let rr = refract(V, n, 1.33);
   let sd = max(dot(rr, g.sun.xyz), 0.);
   let fr = pow(1. - sqrt(max(k, 0.)), 5.);
-  let sky = (vec3f(.27, .71, 1.) * 1.3 * clamp(1. + 2.3 * (s.x * .6 - s.y * .8), .5, 2.2) + vec3f(1., .95, .85) * (pow(sd, 60.) * 1.3 + pow(sd, 500.) * 12. + pow(sd, 4000.) * 22.)) * (1. - fr);
+  let sky = (vec3f(.24, .66, 1.) * 1.3 * clamp(1. + 2.3 * (s.x * .6 - s.y * .8), .5, 2.2) + vec3f(1., .95, .85) * (pow(sd, 60.) * 1.3 + pow(sd, 500.) * 12. + pow(sd, 4000.) * 22.)) * (1. - fr);
   let z = zone(i.wp);
   let R = reflect(V, n);
   let refl = fogIn(i.wp, R, 300., z, g.sun.xyz) * 1.15;
