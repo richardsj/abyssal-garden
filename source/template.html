@@ -109,14 +109,18 @@ svg { width: 1.5em; height: 1.5em; fill: currentColor; }
 
 /* in the scene: a hint of the main keys (shown for four seconds after the first dive) and the whole list (the ? key),
    both in a see-through rounded box low in the middle; they fade in and out */
-#t, #y {
+#t, #y, #u {
   position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); margin: 0; padding: 1em 1.6em;
   border-radius: .9em; background: #03131c99; box-shadow: 0 .3em 1.5em #0006; font-size: .8em; letter-spacing: .12em;
-  text-transform: uppercase; white-space: nowrap; opacity: 0; transition: opacity .7s; pointer-events: none;
+  text-transform: uppercase; white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .7s, visibility 0s .7s;
 }
 #t { display: flex; align-items: center; gap: .7em; }
-#t i + i, #t i ~ i { margin-left: 1.3em; }
-#t.on, #y.on { opacity: 1; }
+#t i ~ i { margin-left: 1.3em; }
+/* the Day / Night label that answers the N key: near the top, bigger, and quick to appear */
+#u { top: 12%; bottom: auto; font-size: 1.1em; font-weight: 800; color: #9ff6ff; }
+#t.on, #y.on, #u.on { opacity: 1; visibility: visible; transition: opacity .7s; }
+#u.on { transition: opacity .15s; }
 @media (pointer: coarse) {
   #t, #y { display: none; }
 }
@@ -171,6 +175,7 @@ svg { width: 1.5em; height: 1.5em; fill: currentColor; }
 <pre id=i></pre>
 <p id=t><i><b>?</b></i>Keys<i><b>N</b></i>Day / night<i><b>W</b><b>A</b><b>S</b><b>D</b></i>Swim</p>
 <div id=y></div>
+<p id=u></p>
 <script>
 /*SCRIPT*/
 </script>

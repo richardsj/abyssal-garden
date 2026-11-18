@@ -250,7 +250,7 @@ const flyPts = [];
 // per-frame float state lives in one preallocated array, so the frame loop allocates no heap numbers
 const F = new Float64Array(32), P6 = new Float64Array(6);
 const CX = 0, CY = 1, CZ = 2, YAW = 3, PIT = 4, FX = 5, FY = 6, FZ = 7, RX = 8, RZ = 9, UX = 10, UY = 11, UZ = 12, VX = 13, VY = 14, VZ = 15, TIME = 16, FLT = 17, LAST = 18, GPU = 19, HUDT = 20, SPL = 21, MX = 22, MY = 23, MZ = 24;
-// Night dive: NIGHT runs 0 (day) .. 1 (night) and creeps toward NGOAL over about six seconds; STIR is how stirred up the
+// Night dive: NIGHT runs 0 (day) .. 1 (night) and creeps toward NGOAL over five seconds; STIR is how stirred up the
 // water round the viewer is (0..1): it rises with swimming speed and settles over a couple of seconds.
 const NIGHT = 25, NGOAL = 26, STIR = 27;
 // CALM is how settled the viewer has been (0..1): about five seconds of keeping still or drifting under 1.2 m/s fill it,
@@ -479,7 +479,10 @@ function render() {
   const zx = cx - PURPLE[0], zz = cz - PURPLE[1]; let zt = (50 - sqrt(zx * zx + zz * zz)) / 22; zt = zt < 0 ? 0 : zt > 1 ? 1 : zt;
   m[51] = zt * zt * (3 - 2 * zt);
   let ek = (-cy - 8) / 26; ek = ek < 0 ? 0 : ek > 1 ? 1 : ek;
-  const nt = F[NIGHT] * F[NIGHT] * (3 - 2 * F[NIGHT]);
+  // No easing here: the sky light already fades by equal ratios (below), so equal steps of F[NIGHT] look like equal
+  // steps of brightness. With an ease-in on top, sunrise showed nothing for its first two seconds and N seemed dead
+  // (the owner, 2026-11-18: "with the default night it doesn't switch to day").
+  const nt = F[NIGHT];
   m[56] = EXPO * (0.6 + 0.4 * ek) * (1 + 1.2 * nt); m[57] = RAYS; m[58] = det; m[59] = nt;
   m[60] = F[VX]; m[61] = F[VY]; m[62] = F[VZ]; m[63] = F[STIR];
   // sky light fades by equal ratios, not equal amounts, so dusk looks half way and not like day
@@ -606,7 +609,7 @@ function frame(now) {
   }
   F[TIME] += dt;
   {
-    const dn = F[NGOAL] - F[NIGHT], st = dt / 6; F[NIGHT] += dn > st ? st : dn < -st ? -st : dn;
+    const dn = F[NGOAL] - F[NIGHT], st = dt / 5; F[NIGHT] += dn > st ? st : dn < -st ? -st : dn;
     const spd = sqrt(F[VX] * F[VX] + F[VY] * F[VY] + F[VZ] * F[VZ]); let want = (spd - 1.5) / 6; want = want < 0 ? 0 : want > 1 ? 1 : want;
     const cl = F[CALM] + (spd < 1.2 ? dt / 5 : spd > 2.5 ? -dt * 3 : -dt * 0.4); F[CALM] = cl < 0 ? 0 : cl > 1 ? 1 : cl;
     F[STIR] += (want - F[STIR]) * (1 - exp(-dt * (want > F[STIR] ? 4 : 0.6)));
@@ -640,13 +643,15 @@ function frame(now) {
 }
 
 // ---------------------------------------------------------------- input
-// Day or night: the N key and the two buttons in the menu. The light itself fades over about six seconds (frame()).
+// Day or night: the N key and the two buttons in the menu. The light itself fades over five seconds (frame()).
 const bLight = $('n').querySelectorAll('button');
 const night = (on) => { F[NGOAL] = on ? 1 : 0; bLight[0].className = on ? '' : 'on'; bLight[1].className = on ? 'on' : ''; };
 bLight[0].onclick = () => night(false); bLight[1].onclick = () => night(true); night(F[NGOAL]);
 // A hint of the main keys shows one second after the first dive and fades four seconds later. ? shows the whole list
 // of keys (copied from the menu) until it is pressed again or the menu opens.
 const hint = $('t'), keyList = $('y'); keyList.innerHTML = $('k').innerHTML; let hinted = false;
+// N in the dive: the light takes five seconds to change, so a label says at once which way it is going
+const label = $('u'); let labelT = 0;
 const key = (e, v) => {
   switch (e.code) {
     case 'KeyW': kf = v; break; case 'KeyS': kb = v; break; case 'KeyA': kl = v; break; case 'KeyD': kr = v; break;
@@ -654,7 +659,10 @@ const key = (e, v) => {
     default: if (v && !e.repeat) {
       if (e.code === 'KeyH') { hud = !hud; hTot = 0; hPer = 1e9; info.textContent = ''; }
       else if (e.code === 'KeyM') mute();
-      else if (e.code === 'KeyN') night(!F[NGOAL]);
+      else if (e.code === 'KeyN') {
+        night(!F[NGOAL]);
+        if (!menu) { label.textContent = F[NGOAL] ? 'Night' : 'Day'; label.className = 'on'; clearTimeout(labelT); labelT = setTimeout(() => { label.className = ''; }, 1800); }
+      }
       else if (e.code === 'Escape') ui(true);
       else if (e.code === 'Slash') { keyList.className = keyList.className ? '' : 'on'; hint.className = ''; }
       else if (e.code >= 'Digit1' && e.code <= 'Digit6') { lookAt(...POSES[e.code.charCodeAt(5) - 49]); F[CALM] = 0; }
@@ -690,7 +698,7 @@ const ui = (m) => {
   if (dead) return;
   menu = m; body.className = m ? 'm' : document.pointerLockElement ? 'g p' : 'g';
   // focus the dive button so Enter works (delayed: it can't take focus while still hidden)
-  if (m) { hint.className = keyList.className = ''; release(); setTimeout(() => menu && bDive.focus(), 100); } else document.activeElement.blur();
+  if (m) { hint.className = keyList.className = label.className = ''; release(); setTimeout(() => menu && bDive.focus(), 100); } else document.activeElement.blur();
 };
 const go = () => {
   sound(); ui(false); bDive.textContent = 'Resume';

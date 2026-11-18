@@ -253,3 +253,14 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
   saved"); most likely the page's crash guard after an interrupted load. Left as it was; **High** in the menu resets it.
 - The test tab's 2560x1440 viewport override had been left on the tab the owner uses, making their page wider than the
   window. Cleared; from now on it is cleared after every test session.
+- 2026-11-18, about 17:10: the owner: "The N-key doesn't 'work' - i.e. with the default night it doesn't switch to
+  day". Not reproduced as a dead key: scripted and real key presses, in the menu and in the dive, all flipped the light
+  (brightness 57 to 127 over six seconds, measured with `_scratch/chrome-measure-picture-brightness-after-pressing-n.js`).
+  What the measurement did show: night to day did almost nothing for its first two seconds (58, 60, 63, 69 at
+  half-second steps), because an ease-in sat on top of a fade that was already even; a second press in that time sends
+  it back to night. Day to night never had this, which is why it only showed once night became the default. Changed:
+  no ease-in, five seconds, and a "Day" / "Night" label that appears at once on N. Claude's reading of the cause is an
+  inference; the owner has not yet confirmed the fix.
+- Lesson: the first check of N looked only at which menu button was lit, not at the picture. And a test tab brought
+  to the front receives the owner's keystrokes (a held W and Command showed up in the key log), which corrupts the
+  test and gets in the owner's way.

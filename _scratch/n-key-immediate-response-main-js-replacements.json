@@ -1,0 +1,20 @@
+[
+  { "why": "fade without the slow start",
+    "find": "  const nt = F[NIGHT] * F[NIGHT] * (3 - 2 * F[NIGHT]);",
+    "replace": "  // No easing here: the sky light already fades by equal ratios (below), so equal steps of F[NIGHT] look like equal\n  // steps of brightness. With an ease-in on top, sunrise showed nothing for its first two seconds and N seemed dead\n  // (the owner, 2026-11-18: \"with the default night it doesn't switch to day\").\n  const nt = F[NIGHT];" },
+  { "why": "five seconds",
+    "find": "    const dn = F[NGOAL] - F[NIGHT], st = dt / 6; F[NIGHT] += dn > st ? st : dn < -st ? -st : dn;",
+    "replace": "    const dn = F[NGOAL] - F[NIGHT], st = dt / 5; F[NIGHT] += dn > st ? st : dn < -st ? -st : dn;" },
+  { "why": "comment on timing",
+    "find": "// Night dive: NIGHT runs 0 (day) .. 1 (night) and creeps toward NGOAL over about six seconds;",
+    "replace": "// Night dive: NIGHT runs 0 (day) .. 1 (night) and creeps toward NGOAL over five seconds;" },
+  { "why": "label element",
+    "find": "const hint = $('t'), keyList = $('y'); keyList.innerHTML = $('k').innerHTML; let hinted = false;",
+    "replace": "const hint = $('t'), keyList = $('y'); keyList.innerHTML = $('k').innerHTML; let hinted = false;\n// N in the dive: the light takes five seconds to change, so a label says at once which way it is going\nconst label = $('u'); let labelT = 0;" },
+  { "why": "show the label on N",
+    "find": "      else if (e.code === 'KeyN') night(!F[NGOAL]);",
+    "replace": "      else if (e.code === 'KeyN') {\n        night(!F[NGOAL]);\n        if (!menu) { label.textContent = F[NGOAL] ? 'Night' : 'Day'; label.className = 'on'; clearTimeout(labelT); labelT = setTimeout(() => { label.className = ''; }, 1800); }\n      }" },
+  { "why": "menu hides the label",
+    "find": "  if (m) { hint.className = keyList.className = ''; release();",
+    "replace": "  if (m) { hint.className = keyList.className = label.className = ''; release();" }
+]
