@@ -29,7 +29,8 @@ Nothing to install, and it works offline. It needs a browser with **WebGPU**. If
 - **Manta rays**, rising bubbles and drifting particles
 - **Reef fish** in glowing fantasy colours: clouds of anthias over the coral gardens, triggerfish, parrotfish, pairs of butterflyfish and idols, schools of bluestripe snappers, violet-and-gold fairy basslets, fusiliers, chromis and blue tang
 - **Bait balls**: thousands of silver fish swirling in open water, parting as golden, dark-barred hunters cut through them
-- **Anemones** with clownfish among the tentacles, **soft corals** bending in the current, sea whips and carpets of pulsing polyps
+- **Anemones** with clownfish among the tentacles, **soft corals** bending in the current, sea whips and carpets of pulsing polyps, their tips giving off a light of their own
+- **Fluorescent corals**: about half the colonies glow neon green, cyan or orange under the blue light, and the chromis carry a row of light spots along the flank
 - **A purple grotto** with glowing magenta ground cover, coral and barrel sponges
 - **A soundscape** made up as you listen: a deep rumble, distant whale calls, soft chimes and bubbles
 

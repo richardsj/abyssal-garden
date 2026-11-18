@@ -319,7 +319,10 @@ fn tri(p: vec3f, n: vec3f, s: f32) -> TP {
   let gm = textureSample(tM, sC, i.wp.xz / 384. + .5);
   let ca = caus(i.wp, dist);
   let hgt = A.h * .5 + B.h * .35 + C.h * .15;
-  var bump = 1.7; var gloss = .1; var alb = vec3f(0.); var emi = vec3f(0.); var vao = 1.; var flu = 0.;
+  // Glow (2026-11-18). emi = bioluminescence: light the creature makes itself, so it shows in shade. flu = fluorescence
+  // in the material's own colour; flc = fluorescence in a pigment colour of its own. Both fluorescences are driven by
+  // the green and blue light that reaches the surface, so they keep their colour at depth.
+  var bump = 1.7; var gloss = .1; var alb = vec3f(0.); var emi = vec3f(0.); var vao = 1.; var flu = 0.; var flc = vec3f(0.);
   let flt = ss(.72, .93, n0.y);
   if (mat <= 1) {
     // layered rock: grey / olive / brown beds, warm encrustation patches, algae on up-facing parts
@@ -365,7 +368,8 @@ fn tri(p: vec3f, n: vec3f, s: f32) -> TP {
     if (hue > .66) { alb = vec3f(1., .58, .22); }
     if (hue > .86) { alb = vec3f(.9, .55, .7); }
     alb = mix(alb * .45, mix(alb, vec3f(1.), .1), ss(.3, 1., i.ao)) * (.6 + .3 * B.h);
-    emi = alb * .03 * ss(.5, 1., i.ao); flu = .3; gloss = .3; bump = .25;
+    // tips that glow and slowly pulse, each tree in its own time
+    emi = alb * .2 * ss(.55, 1., i.ao) * (.7 + .3 * sin(g.cam.w * 1.1 + sd * 40.)); flu = .6; gloss = .3; bump = .25;
   } else if (mat == 7) { // anemone column
     alb = mix(vec3f(.3, .13, .3), vec3f(.4, .2, .14), fract(sd * 3.9)) * (.5 + .6 * B.h); gloss = .3; bump = .5;
   } else {
@@ -376,6 +380,12 @@ fn tri(p: vec3f, n: vec3f, s: f32) -> TP {
     alb *= (.4 + .8 * B.h) * (.5 + .9 * i.ao * i.ao);
     alb = mix(alb, vec3f(1., .75, .6), ss(.8, 1., i.ao) * .35);
     emi = alb * .01; flu = .75; gloss = .25; bump = 1.5;
+    // a little over half the colonies fluoresce: neon green, cyan or orange on the branch tips and in polyp speckles
+    let fsel = fract(sd * 11.3);
+    if (fsel < .55) {
+      let fcol = select(select(vec3f(1., .45, .08), vec3f(.1, .85, 1.), fsel < .4), vec3f(.15, 1., .3), fsel < .25);
+      flc = fcol * max(ss(.7, 1., i.ao), ss(.66, .8, F.c) * .6);
+    }
   }
   let rip = select(0., flt * gm.a * cos((i.wp.x * .8 + i.wp.z * .35) * 5. + A.c * 9.) * .65, mat == 0);
   let N = normalize(qrot(i.q, normalize(on + (A.n * .85 + B.n * .65 + C.n * .45 * ss(60., 12., dist) + F.n * .5 * fk) * bump + vec3f(.8, sgro, .35) * vec3f(rip, 1., rip))));
@@ -387,7 +397,7 @@ fn tri(p: vec3f, n: vec3f, s: f32) -> TP {
   let ndl = sat(dot(N, L));
   let am = (amb(i.wp, N, v1.g, z) + side(i.wp, N, sat((v2.r - .5) * 2.7), z)) * ao;
   let dl = E * ndl * (.10 + mix(vec3f(.33), ca, ss(.1, .45, dot(n0, L))) * 2.5);
-  var c = alb * (dl + am) + emi + alb * flu * dot(dl + am, vec3f(.1, .5, .5));
+  var c = alb * (dl + am) + emi + alb * flu * dot(dl + am, vec3f(.1, .5, .5)) + flc * (dot(dl + am, vec3f(.1, .5, .6)) * 2.2 + .12);
   // the diver's lamp: what the camera passes closely keeps its form and its true colours
   c += alb * vec3f(1., .97, .9) * (.42 / (1. + dist * dist * .07)) * (.25 + .75 * sat(dot(N, V))) * (.4 + .6 * ao);
   let H = normalize(V + L);
@@ -425,18 +435,19 @@ fn pal(h: f32) -> vec3f {
   let len = i.a.w; let hA = i.b.w;
   let cy = cos(i.b.x); let sy = sin(i.b.x); let ct = cos(i.b.y); let st = sin(i.b.y);
   let d = vec3f(st * cy, ct, st * sy); let pe = vec3f(ct * cy, -st, ct * sy); let sd = vec3f(-sy, 0., cy);
-  // per type: x sparkle prob, y translucency, z iridescence, w emissive
+  // per type: x sparkle prob, y translucency, z iridescence, w fluorescence (light-driven glow in the leaf's own colour;
+  // raised on 2026-11-18 for the purple foliage 3, the magenta ground cover 5, the red-pink fronds 6 and the teal 7)
   var col = vec3f(0.); var pr = vec4f(0.); var spc = vec3f(0.); var shp = vec2f(.75, .7); var wav = 1.; var fls = 1.;
   let hsel = hs(s1 * 13.7 + s2 * 71.3);
   switch ty {
     case 0 { col = mix(vec3f(.11, .125, .022), vec3f(.04, .10, .04), s1); col = mix(col, vec3f(.25, .17, .025), step(.72, s2)); pr = vec4f(.24, .9, 0., 0.); spc = pal(hsel * .72); shp = vec2f(.5, .32); wav = 1.9; }
     case 1 { col = vec3f(.10, .11, .035); pr = vec4f(0., .2, 0., 0.); shp = vec2f(.05, .1); wav = .3; fls = .3; }
     case 2 { col = mix(vec3f(.05, .20, .16), vec3f(.12, .26, .22), s1); col = mix(col, vec3f(.30, .14, .24), step(.85, s2)); pr = vec4f(.05, 1.0, .25, 0.); spc = vec3f(.6, 1., .9); shp = vec2f(.45, .35); wav = 2.2; }
-    case 3 { col = mix(vec3f(.02, .05, .065), vec3f(.05, .03, .08), s1); col = mix(col, vec3f(.09, .03, .09), step(.8, s2)); pr = vec4f(.2, .85, .55, .02); spc = mix(vec3f(.5, .35, 1.), vec3f(.2, 1., .7), step(.6, hsel)); shp = vec2f(.7, .6); wav = 2.4; }
+    case 3 { col = mix(vec3f(.02, .05, .065), vec3f(.05, .03, .08), s1); col = mix(col, vec3f(.09, .03, .09), step(.8, s2)); pr = vec4f(.2, .85, .55, .14); spc = mix(vec3f(.5, .35, 1.), vec3f(.2, 1., .7), step(.6, hsel)); shp = vec2f(.7, .6); wav = 2.4; }
     case 4 { col = mix(vec3f(.30, .15, .02), vec3f(.42, .25, .04), s1); pr = vec4f(.2, 1., .1, 0.); spc = vec3f(1., .85, .5); shp = vec2f(.5, .4); wav = 1.8; }
-    case 5 { col = mix(vec3f(.85, .05, .40), vec3f(.60, .10, .80), step(.7, s1)); col = mix(col, vec3f(.95, .25, .55), step(.75, s2)); pr = vec4f(.22, .8, 0., .30); spc = vec3f(1., .35, .8); shp = vec2f(.6, .6); fls = 2.; }
-    case 6 { col = mix(vec3f(.80, .16, .16), vec3f(.92, .36, .42), s1); pr = vec4f(.06, 1., 0., .10); spc = vec3f(1., .5, .5); shp = vec2f(.4, .3); wav = 2.; }
-    default { col = mix(vec3f(.05, .40, .36), vec3f(.10, .52, .58), s1); pr = vec4f(.1, .9, .2, .04); spc = vec3f(.3, 1., .9); shp = vec2f(.6, .5); }
+    case 5 { col = mix(vec3f(.85, .05, .40), vec3f(.60, .10, .80), step(.7, s1)); col = mix(col, vec3f(.95, .25, .55), step(.75, s2)); pr = vec4f(.22, .8, 0., .55); spc = vec3f(1., .35, .8); shp = vec2f(.6, .6); fls = 2.; }
+    case 6 { col = mix(vec3f(.80, .16, .16), vec3f(.92, .36, .42), s1); pr = vec4f(.06, 1., 0., .25); spc = vec3f(1., .5, .5); shp = vec2f(.4, .3); wav = 2.; }
+    default { col = mix(vec3f(.05, .40, .36), vec3f(.10, .52, .58), s1); pr = vec4f(.1, .9, .2, .2); spc = vec3f(.3, 1., .9); shp = vec2f(.6, .5); }
   }
   pr.x = step(hs(s1 * 91.7 + s2 * 37.1 + i.b.x), pr.x);
   let k = (i.c.w - .3) * 2.0 + sin(t * (.8 + s1) * fls + s2 * 40. + hA * .25) * .10 * fls;
@@ -571,19 +582,21 @@ fn tpos(a: vec4f, b: vec4f, c: vec4f, v: f32, t: f32) -> vec3f {
   if (h > .25) { body = vec3f(.2, .75, .42); tc = vec3f(1., .45, .8); }
   if (h > .5) { body = vec3f(.9, .72, .46); tc = vec3f(.7, .4, 1.); }
   if (h > .75) { body = vec3f(.16, .36, .95); tc = vec3f(1., .82, .3); }
-  var alb = mix(body * (.4 + .6 * v), tc, tip); var emi = tc * tip * .22 + body * .03 * v;
-  if (k > 1.5) { // sea whip: warm stem, a row of pale glowing polyps
+  // emi is bioluminescence (2026-11-18: about three times what it was): anemone tips, the polyp dots along a sea whip,
+  // and the arms of a polyp carpet all give their own light, which shows in shade and under overhangs
+  var alb = mix(body * (.4 + .6 * v), tc, tip); var emi = tc * tip * .7 + body * .05 * v;
+  if (k > 1.5) { // sea whip: warm stem, a row of glowing polyps
     let st = mix(vec3f(.85, .16, .1), vec3f(1., .6, .1), fract(h * 3.));
-    alb = st * (.72 + .28 * sin(v * 170. + u * 2.)) * (.6 + .4 * v); emi = st * .05 * v;
-  } else if (k > .5) { // polyp: pale arms, the pulse shows as a soft glow
+    alb = st * (.72 + .28 * sin(v * 170. + u * 2.)) * (.6 + .4 * v); emi = st * v * (.06 + .5 * ss(.55, .95, sin(v * 170. + u * 2.)));
+  } else if (k > .5) { // polyp: pale arms that glow, brightest at the tip
     alb = mix(mix(vec3f(.75, .8, 1.), vec3f(1., .75, .85), fract(h * 2.)), vec3f(1.), tip * .6);
-    emi = alb * (.06 + .1 * tip);
+    emi = alb * (.12 + .5 * tip);
   }
   let E = sunE(i.wp.y, z) * i.lt * (.5 + .5 * ca);
   let ndl = dot(n, L);
   var c = alb * (E * (.3 + .7 * sat(ndl) + .3 * sat(-ndl)) + amb(i.wp, n, vv.g, z) * 1.25) * (.5 + .5 * sqrt(max(1. - u * u, 0.)));
   c += E * pow(sat(dot(n, normalize(V + L))), 30.) * .5 + alb * pow(abs(u), 3.) * .25 * vv.g;
-  c += emi * (.8 + .2 * sin(g.cam.w * 1.7 + i.m.y * 50.));
+  c += emi * (.65 + .35 * sin(g.cam.w * 1.7 + i.m.y * 50. - v * 3.)); // the pulse runs out toward the tip
   return fin(fog(c, i.wp, z));
 }
 `;
@@ -684,7 +697,7 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
   if (fi > .02 && dot(n, V) < 0.) { n = -n; }
   let x = i.op.x; let y = i.op.y; let s = i.sd.x;
   let back = ss(-.03, .08, y);
-  let fwy = fwidth(y); // for fading fine stripes before they shimmer (derivatives must be taken outside the switch)
+  let fwy = fwidth(y); let fwx = fwidth(x); // for fading fine stripes and spots before they shimmer (derivatives must be taken outside the switch)
   var alb = vec3f(.5); var emi = vec3f(0.); var ir = .2; var fc = vec3f(.5); var fg = vec3f(0.);
   switch (u32(i.sd.y + .5)) {
     case 0u: {
@@ -772,8 +785,10 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
       emi = alb * .07;
       fc = mix(vec3f(.72, .2, 1.), vec3f(1., .8, .1), t); fg = fc * .5; ir = .3;
     }
-    default: {
+    default: { // chromis: pale green-blue, with a row of light spots along the flank (bioluminescent, like a lanternfish)
       alb = mix(vec3f(.5, .95, .8), vec3f(.2, .7, .9), back); ir = .7; fc = alb; fg = vec3f(.3, 1., .8) * .5;
+      // round spots, ten to the body length; they fade out before they would shimmer
+      emi = vec3f(.05, .95, .6) * .9 * ss(.013, .005, length(vec2f((fract(x * 10.) - .5) * .1, y - .005))) * ss(.42, .3, x) * ss(-.42, -.3, x) * sat(1.6 - fwx * 60.);
     }
   }
   if (fi < .02) { // eye

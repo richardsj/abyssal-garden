@@ -130,8 +130,18 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
 - 2026-11-18: more colourful fish, built, NOT yet approved or committed. Two silver schools became bluestripe
   snappers and fairy basslets; hunters became golden trevally. Bait balls stay silver. Report:
   `test-probe-steps/20261118_1215-more-colourful-fish/REPORT.md`.
-- Queue, in the owner's order: water colour (feels "too thick in its blueness": try a palette of options and
-  compare the owner's and Claude's picks), then the waves.
+- 2026-11-18: fish colours approved and committed (`a34d7db`).
+- 2026-11-18: water. Five palettes compared (`test-probe-steps/20261118_1235-water-colour-palette/`); the owner
+  chose 5, "clear sapphire" (Claude ranked it second, after "same blue, clearer"). Committed (`d2e446f`). The owner
+  may suggest values of their own for SIG, KD and WCOL.
+- 2026-11-18: fluorescent and bioluminescent colours, built, NOT yet approved or committed: fluorescent coral
+  colonies, glowing tentacle tips and polyp dots, brighter fluorescent plants, light spots on the chromis. Report:
+  `test-probe-steps/20261118_1300-fluorescent-and-bioluminescent/REPORT.md`.
+- 2026-11-18: glow approved by the owner ("I like it. It could be even more bright") and committed. At the owner's
+  request the whole branch was fast-forwarded onto `main` and pushed, so the live site now has the denser reef, no
+  floating rocks, the colourful fish, the clear sapphire water and the glow.
+- Queue: a brighter glow (owner's remark); the waves (real swell and a wind-driven pattern first, then light tied
+  to the waves); the owner may suggest water values of their own.
 - 2026-11-18: benchmark method. The reading depends on how much of the browser window is on screen (a run during
   which the owner resized the window to fit the screen read 17 ms against 8-9 ms). Keep the window as it is for
   every run of a comparison and record it; do not compare runs across a resize.
