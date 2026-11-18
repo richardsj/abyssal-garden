@@ -9,9 +9,11 @@ in repeated rounds, until it stopped finding major defects. Play it at
 **A dreamy underwater world you can swim through, right in your browser.**
 
 Towering kelp forests, sunbeams pouring through a rippling surface, a sunken ship, manta rays gliding overhead, bait balls swirling as hunters cut through them, clownfish in their anemones.
-And all of it is made by code: no images, no 3D models, no sound files. The whole world fits in **one 117 KB HTML file**.
+And all of it is made by code: no images, no 3D models, no sound files. The whole world fits in **one 137 KB HTML file**.
 
-![Kelp forest with a stone whale tail and a manta ray](.github/screenshots/whale-fluke.jpg)
+The dive starts at night, by moonlight, with the reef lit by its own glow:
+
+![Glowing jellyfish rising over the reef at night](.github/screenshots/night-jellyfish.jpg)
 
 ## Try it
 
@@ -37,12 +39,13 @@ Nothing to install, and it works offline. It needs a browser with **WebGPU**. If
 - **A night dive**: the dive starts by moonlight. The jellyfish, coral tips and kelp specks light the reef, your lamp brings out the fluorescent corals close by, and plankton sparks blue-green around you when you swim fast. Press `N` and the sun comes up over a few seconds; press it again for night
 - **A soundscape** made up as you listen: a deep rumble, distant whale calls, soft chimes and bubbles
 
+![The stone whale tail and a manta ray in the kelp at night](.github/screenshots/night-whale-fluke.jpg)
+
 | | |
 |---|---|
-| ![Shipwreck](.github/screenshots/shipwreck.jpg) | ![Looking up through the kelp](.github/screenshots/kelp-forest.jpg) |
-| ![Barrel sponges](.github/screenshots/sponge-garden.jpg) | ![Light rays over the kelp basin](.github/screenshots/light-rays.jpg) |
-
-![The purple grotto](.github/screenshots/purple-grotto.jpg)
+| ![The shipwreck at night](.github/screenshots/night-shipwreck.jpg) | ![Looking up at a bait ball and jellyfish under the moonlit surface](.github/screenshots/night-bait-ball.jpg) |
+| ![Barrel sponges and glowing coral at night](.github/screenshots/night-sponge-garden.jpg) | ![Jellyfish over the kelp basin at night](.github/screenshots/night-kelp-basin.jpg) |
+| ![The purple grotto at night](.github/screenshots/night-purple-grotto.jpg) | ![Plankton sparking blue-green around a fast swimmer](.github/screenshots/night-plankton-sparks.jpg) |
 
 ## Controls
 
@@ -63,6 +66,19 @@ Nothing to install, and it works offline. It needs a browser with **WebGPU**. If
 The seabed, cliffs and arches are solid: you glide along the rock instead of swimming into it, and you still fit through every tunnel and arch. Kelp, plants, corals, sponges, loose rocks, the ship and the whale tail you can swim through.
 
 **On a touchscreen:** hold one finger down to swim forward and slide it to steer. Put a second finger down to go faster. The `≡` button in the corner opens the menu. Phones always show the scene in landscape and start on Low or Medium detail. (Touch support is experimental.)
+
+## By day
+
+Press `N` during the dive (or open a link ending in `?night=0`) and the sun comes up over the same reef:
+
+![Kelp forest with a stone whale tail and a manta ray](.github/screenshots/whale-fluke.jpg)
+
+| | |
+|---|---|
+| ![Shipwreck](.github/screenshots/shipwreck.jpg) | ![Looking up through the kelp](.github/screenshots/kelp-forest.jpg) |
+| ![Barrel sponges](.github/screenshots/sponge-garden.jpg) | ![Light rays over the kelp basin](.github/screenshots/light-rays.jpg) |
+
+![The purple grotto](.github/screenshots/purple-grotto.jpg)
 
 ## Detail levels
 

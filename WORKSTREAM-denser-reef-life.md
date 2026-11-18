@@ -187,7 +187,8 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
   touch controls (about 50 commits of iPhone work: hold-and-drag to swim, edge-hold to turn, depth gestures; the
   owner has not tried them yet but "suspected it would be desirable"), and landmarks ("I saw some arches and
   things"). The owner judged their fish schools and water well behind ours, so only controls and landmarks are of
-  interest. Other forks with ideas: VR through WebXR (`strayer/abyssal-garden-vr`, `ozghosty/abyssal-garden-vr`).
+  interest. Also from that fork (owner, 2026-11-18, backlog, "not immediate"): their manta rays seem a bit slower;
+  keep our manta movement as it is but slow it down slightly. Other forks with ideas: VR through WebXR (`strayer/abyssal-garden-vr`, `ozghosty/abyssal-garden-vr`).
 - Queue after those: curious-but-cautious cuttlefish; the caustic pattern; the waves (real swell and a wind-driven pattern first, then light tied to the waves); the
   owner may suggest water values of their own.
 - 2026-11-18: benchmark method. The reading depends on how much of the browser window is on screen (a run during
