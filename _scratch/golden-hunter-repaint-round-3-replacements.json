@@ -1,0 +1,4 @@
+[
+  { "why": "darker back", "find": "      alb = mix(alb, vec3f(.4, .27, .07), ss(.025, .1, y) * .8);", "replace": "      alb = mix(alb, vec3f(.33, .21, .05), ss(.02, .1, y) * .85);" },
+  { "why": "warmer", "find": "      emi = alb * .07; // enough of its own colour to stay gold in blue water", "replace": "      emi = alb * vec3f(.12, .09, .06); // enough of its own colour, mostly the red of it, to stay gold in blue water" }
+]

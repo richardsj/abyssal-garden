@@ -222,3 +222,10 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
   night; the README still says "one 117 KB HTML file" (it is 133,788 bytes).
 - Next, in order: the golden hunters' flat shading (three reviewers); jellyfish that cast shadows; then the owner's
   backlog (caustic pattern, curious cuttlefish, waves).
+- 2026-11-18, about 16:30: the golden hunters repainted (three reviewers had called them flat): bronze back, gold
+  flank, silver belly, a fine scale net, thinner bars that fade toward the belly, fins with rays and dusky tips and
+  almost no glow. Four rounds; the first was worse (honeycomb scales, olive colour). Claude's reading: a moderate
+  gain; what still looks toy-like is the flat fin shapes and the shared cartoon eye. Report:
+  `test-probe-steps/20261118_1615-golden-hunters/`. Not seen by the owner or a critic.
+- Next, in order: jellyfish that cast shadows; then the owner's backlog (caustic pattern, curious cuttlefish, waves).
+  Candidates noticed on the way: a less cartoonish eye for the larger fish; the white-tipped anemone at viewpoint 1.

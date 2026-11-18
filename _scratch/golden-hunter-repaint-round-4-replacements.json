@@ -1,0 +1,8 @@
+[
+  { "why": "the daylight warmth fudge must not glow at night",
+    "find": "      emi = alb * vec3f(.12, .09, .06); // enough of its own colour, mostly the red of it, to stay gold in blue water",
+    "replace": "      emi = alb * vec3f(.12, .09, .06) * (1. - .9 * g.mis.w); // enough of its own colour, mostly the red of it, to stay gold in blue water by day" },
+  { "why": "bars a little stronger again",
+    "find": "      alb = mix(alb, vec3f(.05, .05, .04), bar * .8);\n      emi = alb * vec3f(.12",
+    "replace": "      alb = mix(alb, vec3f(.05, .05, .04), bar * .9);\n      emi = alb * vec3f(.12" }
+]
