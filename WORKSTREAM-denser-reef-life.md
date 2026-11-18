@@ -245,3 +245,11 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
 - Open question for the owner: since night may be the preferred look, should the page start at night?
 - Next: the owner's backlog (caustic pattern, waves). Candidates: a less cartoonish eye for the larger fish; the
   white-tipped anemone at viewpoint 1; README size figure.
+- 2026-11-18, about 16:55: the owner: "yes to Night mode as default". The dive now starts at night; a link ending in
+  `?night=0` starts by day; `N` and the menu still switch. Consequences to remember: `bench.html?bench=1` now runs at
+  night (add `&night=0` to compare with the daytime numbers in earlier reports), and capture scripts that do not call
+  `dev.night(0, 0)` themselves now photograph at night unless the address has `night=0`.
+- The owner's own tab was found running at Medium detail without having chosen it ("I don't know why Medium was
+  saved"); most likely the page's crash guard after an interrupted load. Left as it was; **High** in the menu resets it.
+- The test tab's 2560x1440 viewport override had been left on the tab the owner uses, making their page wider than the
+  window. Cleared; from now on it is cleared after every test session.

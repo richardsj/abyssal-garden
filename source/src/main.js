@@ -258,7 +258,8 @@ const NIGHT = 25, NGOAL = 26, STIR = 27;
 const CALM = 28;
 // moonlight as a fraction of sunlight, per colour, as natural logarithms: red .013, green .03, blue .066
 const MOONR = -4.343, MOONG = -3.507, MOONB = -2.718;
-if (/[?&]night=1/.test(location.search)) F[NIGHT] = F[NGOAL] = 1;
+// The dive starts at night (the owner's preferred look, 2026-11-18); a link ending in ?night=0 starts by day.
+if (!/[?&]night=0/.test(location.search)) F[NIGHT] = F[NGOAL] = 1;
 // aim the camera from P6 = position + look-at point
 function aim() {
   const dx = P6[3] - P6[0], dy = P6[4] - P6[1], dz = P6[5] - P6[2];

@@ -1,0 +1,3 @@
+[
+  { "why": "N works both ways", "find": "          <i><b>N</b></i>Night\n", "replace": "          <i><b>N</b></i>Day / night\n" }
+]

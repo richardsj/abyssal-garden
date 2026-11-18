@@ -1,0 +1,8 @@
+[
+  { "why": "feature bullet",
+    "find": "- **A night dive**: press `N` and the sun sinks to moonlight over a few seconds. The jellyfish, coral tips and kelp specks light the reef, your lamp brings out the fluorescent corals close by, and plankton sparks blue-green around you when you swim fast",
+    "replace": "- **A night dive**: the dive starts by moonlight. The jellyfish, coral tips and kelp specks light the reef, your lamp brings out the fluorescent corals close by, and plankton sparks blue-green around you when you swim fast. Press `N` and the sun comes up over a few seconds; press it again for night" },
+  { "why": "controls row",
+    "find": "| Day / night | `N`, or **Day** / **Night** in the menu (a link ending in `?night=1` starts at night) |",
+    "replace": "| Day / night | `N`, or **Day** / **Night** in the menu (the dive starts at night; a link ending in `?night=0` starts by day) |" }
+]

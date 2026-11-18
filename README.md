@@ -34,7 +34,7 @@ Nothing to install, and it works offline. It needs a browser with **WebGPU**. If
 - **Anemones** with clownfish among the tentacles, **soft corals** bending in the current, sea whips and carpets of pulsing polyps, their tips giving off a light of their own
 - **Fluorescent corals**: about half the colonies glow neon green, cyan or orange under the blue light, and the chromis carry a row of light spots along the flank
 - **A purple grotto** with glowing magenta ground cover, coral and barrel sponges
-- **A night dive**: press `N` and the sun sinks to moonlight over a few seconds. The jellyfish, coral tips and kelp specks light the reef, your lamp brings out the fluorescent corals close by, and plankton sparks blue-green around you when you swim fast
+- **A night dive**: the dive starts by moonlight. The jellyfish, coral tips and kelp specks light the reef, your lamp brings out the fluorescent corals close by, and plankton sparks blue-green around you when you swim fast. Press `N` and the sun comes up over a few seconds; press it again for night
 - **A soundscape** made up as you listen: a deep rumble, distant whale calls, soft chimes and bubbles
 
 | | |
@@ -54,7 +54,7 @@ Nothing to install, and it works offline. It needs a browser with **WebGPU**. If
 | Swim faster | Hold `Shift` |
 | Jump to a viewpoint | `1` to `6` (`3` looks up at a bait ball; the others are the spots in the screenshots) |
 | Menu | `Esc` releases the mouse and opens the menu with the list of controls; **Resume** takes you back |
-| Day / night | `N`, or **Day** / **Night** in the menu (a link ending in `?night=1` starts at night) |
+| Day / night | `N`, or **Day** / **Night** in the menu (the dive starts at night; a link ending in `?night=0` starts by day) |
 | Sound on / off | `M` (sound starts when you dive in) |
 | Show the keys | `?` (a short hint of the main keys also shows for a few seconds after you dive in) |
 | Performance stats | `H` |

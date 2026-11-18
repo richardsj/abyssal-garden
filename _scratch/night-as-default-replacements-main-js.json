@@ -1,0 +1,5 @@
+[
+  { "why": "night is the default",
+    "find": "if (/[?&]night=1/.test(location.search)) F[NIGHT] = F[NGOAL] = 1;",
+    "replace": "// The dive starts at night (the owner's preferred look, 2026-11-18); a link ending in ?night=0 starts by day.\nif (!/[?&]night=0/.test(location.search)) F[NIGHT] = F[NGOAL] = 1;" }
+]
