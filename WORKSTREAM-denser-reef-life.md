@@ -188,3 +188,16 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
 - 2026-11-18: benchmark method. The reading depends on how much of the browser window is on screen (a run during
   which the owner resized the window to fit the screen read 17 ms against 8-9 ms). Keep the window as it is for
   every run of a comparison and record it; do not compare runs across a resize.
+- 2026-11-18, after the owner left the order of steps to Claude ("I prefer this look ... not bad, not as impressive
+  as the cuttlefish"): three separate local commits. `71519b5` jellyfish with the lighting; `72adc7c` the thrust (45%
+  of the bell radius per pulse, quick up, slow settle; checked with six frames from a fixed camera); `1180363` a
+  denser bell, clearest through the middle. Then a second blind critic, same prompt and views as the first
+  (`CRITIC_REPORT_2b_after-lighting-thrust-and-translucency.md`; about 103,500 tokens, 2 min 42 s).
+- Result of that critic, plainly: neither the lighting nor the opacity change registered. Its top cue is still "they
+  do not take part in the scene's sun and shadow" at medium confidence, and it still calls the bell "a film of
+  constant density". Verdict softened only from "agree" to "partly agree, leaning towards agree". Claude's reading of
+  why (from the code, not tested): the jellyfish hang in sunlit open water in front of shaded walls, so the shadow
+  term rarely applies where they are; the ripple used on them is wider than a bell; and three blended layers (both
+  walls of the bell plus the membrane) flatten both the opacity profile and any lit side. Next single factor proposed:
+  draw only the near wall of the bell and make the membrane faint. Waiting for the owner's own look at the thrust and
+  the denser bell first.
