@@ -71,14 +71,14 @@ The seabed, cliffs and arches are solid: you glide along the rock instead of swi
 
 Press `N` during the dive (or open a link ending in `?night=0`) and the sun comes up over the same reef:
 
-![Kelp forest with a stone whale tail and a manta ray](.github/screenshots/whale-fluke.jpg)
+![Kelp forest with a stone whale tail and a manta ray](.github/screenshots/day-whale-fluke.jpg)
 
 | | |
 |---|---|
-| ![Shipwreck](.github/screenshots/shipwreck.jpg) | ![Looking up through the kelp](.github/screenshots/kelp-forest.jpg) |
-| ![Barrel sponges](.github/screenshots/sponge-garden.jpg) | ![Light rays over the kelp basin](.github/screenshots/light-rays.jpg) |
+| ![The shipwreck](.github/screenshots/day-shipwreck.jpg) | ![Looking up at a bait ball under the sunlit surface](.github/screenshots/day-bait-ball.jpg) |
+| ![Barrel sponges and coral](.github/screenshots/day-sponge-garden.jpg) | ![Light rays over the kelp basin](.github/screenshots/day-kelp-basin.jpg) |
 
-![The purple grotto](.github/screenshots/purple-grotto.jpg)
+![The purple grotto](.github/screenshots/day-purple-grotto.jpg)
 
 ## Detail levels
 
