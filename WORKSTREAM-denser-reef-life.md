@@ -264,3 +264,4 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
 - Lesson: the first check of N looked only at which menu button was lit, not at the picture. And a test tab brought
   to the front receives the owner's keystrokes (a held W and Command showed up in the key log), which corrupts the
   test and gets in the owner's way.
+- 2026-11-18, 17:07: the owner confirmed the N fix: "What you did worked". Pushed.
