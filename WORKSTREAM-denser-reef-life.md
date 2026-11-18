@@ -125,6 +125,13 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
   `world.js` (random seed 8 unused), the bob line removed from the solid shader, the growth-on-boulders code cut
   down to resting boulders. Folder: `test-probe-steps/20261118_1150-denser-reef-floating-rocks-removed/`.
   The phase 0 and phase 1 notes above about floating rock and bob are history, not current.
+- 2026-11-18: phase 1 with the floating rocks removed approved by the owner ("Improved, nice") and committed
+  locally (`27defa7`).
+- 2026-11-18: more colourful fish, built, NOT yet approved or committed. Two silver schools became bluestripe
+  snappers and fairy basslets; hunters became golden trevally. Bait balls stay silver. Report:
+  `test-probe-steps/20261118_1215-more-colourful-fish/REPORT.md`.
+- Queue, in the owner's order: water colour (feels "too thick in its blueness": try a palette of options and
+  compare the owner's and Claude's picks), then the waves.
 - 2026-11-18: benchmark method. The reading depends on how much of the browser window is on screen (a run during
   which the owner resized the window to fit the screen read 17 ms against 8-9 ms). Keep the window as it is for
   every run of a comparison and record it; do not compare runs across a resize.

@@ -548,8 +548,10 @@ function makeWorld(D, T, flyPts, POSES) {
   rseed(14);
   const SCH = [[-2, -36, -10, 15, 520, 0.3, 1, 0.945], [8, -30, -70, 22, 420, 0.32, -1], [48, -30, 14, 18, 360, 0.3, 1], [-58, -30, -8, 11, 420, 0.28, -1, 0.3], [8, -36, 84, 16, 320, 0.28, 1],
     [-90, -28, -70, 25, 300, 0.3, 1], [95, -30, 70, 25, 300, 0.3, -1], [0, -22, 20, 30, 380, 0.34, -1], [-30, -30, -100, 18, 300, 0.3, 1], [16, -36, 30, 12, 300, 0.3, 1], [-48, -34, -58, 12, 300, 0.3, -1], [-45, -35, 38, 14, 320, 0.3, 1]];
-  // the ribbon schools: silver bait fish, fusiliers, chromis and two small schools of blue tang
-  const SK = [[0, 0], [1, 10], [1, 11], [1, 10], [1, 11], [5, 7], [1, 10], [0, 0], [1, 11], [5, 7], [1, 10], [1, 11]];
+  // the ribbon schools: [mesh, colour]. Bluestripe snappers (the first) and fairy basslets (the eighth) took the place
+  // of the two silver schools on 2026-11-18; the rest are fusiliers, chromis and two small schools of blue tang.
+  // Each fish draws one random number whatever its kind, so changing a school's kind moves nothing.
+  const SK = [[1, 12], [1, 10], [1, 11], [1, 10], [1, 11], [5, 7], [1, 10], [1, 13], [1, 11], [5, 7], [1, 10], [1, 11]];
   SCH.forEach((s, j) => { const ss = s[7] === undefined ? rnd() : s[7], [kind, col] = SK[j], tang = kind === 5; for (let i = 0; i < (tang ? 70 : s[4]); i++) fishAdd(kind, s[0], s[1], s[2], s[3], s[6] * 1.9 / s[3], tang ? 0.42 : s[5] * (kind ? 1.15 : 1), ss, col, 0, tang ? 0.5 : 1); });
   // anthias: a cloud over every sponge and coral garden, around the whale tail and the barrel sponges of viewpoint 4
   rseed(15);

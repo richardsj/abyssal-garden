@@ -670,7 +670,8 @@ fn fpos(a: vec4f, b: vec4f, c: vec4f, t: f32) -> vec3f {
 }
 fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x)); }
 // Colours (i.sd.y): 0 bait, 1 orange-magenta anthias, 2 violet-gold anthias, 3 triggerfish, 4 hunter, 5 clownfish,
-// 6 butterflyfish, 7 blue tang, 8 idol, 9 parrotfish, 10 fusilier, 11 chromis. x runs nose (+.5) to tail, y is height.
+// 6 butterflyfish, 7 blue tang, 8 idol, 9 parrotfish, 10 fusilier, 11 chromis, 12 bluestripe snapper, 13 fairy basslet.
+// x runs nose (+.5) to tail, y is height.
 @fragment fn fsFish(i: FO) -> @location(0) vec4f {
   let V = normalize(g.cam.xyz - i.wp); let L = g.sun.xyz;
   let z = zone(i.wp); let vv = vol(i.wp);
@@ -679,6 +680,7 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
   if (fi > .02 && dot(n, V) < 0.) { n = -n; }
   let x = i.op.x; let y = i.op.y; let s = i.sd.x;
   let back = ss(-.03, .08, y);
+  let fwy = fwidth(y); // for fading fine stripes before they shimmer (derivatives must be taken outside the switch)
   var alb = vec3f(.5); var emi = vec3f(0.); var ir = .2; var fc = vec3f(.5); var fg = vec3f(0.);
   switch (u32(i.sd.y + .5)) {
     case 0u: {
@@ -706,10 +708,13 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
       emi = vec3f(.3, .9, 1.) * sp * .35 + vec3f(1., .7, .1) * min(li, 1.) * .2;
       fc = mix(vec3f(.04, .08, .18), vec3f(.1, .5, .7), ss(.5, 1., fi)); fg = vec3f(.2, .9, 1.) * .6;
     }
-    case 4u: {
-      alb = mix(vec3f(.4, .47, .55), vec3f(.02, .06, .13), ss(-.02, .05, y));
-      emi = vec3f(.2, .85, 1.) * ss(.012, .002, abs(y - .012)) * ss(-.42, .2, x) * ss(.42, .3, x) * .8;
-      fc = mix(vec3f(.1, .14, .2), vec3f(.3, .42, .5), fi); fg = vec3f(.2, .6, .8) * .15; ir = .4;
+    case 4u: { // hunter: a golden trevally, nothing like its silver prey. Gold flanks, dark bars, pale belly, dusky back
+      let bar = ss(.45, .85, sin(x * 38. + .6)) * ss(-.07, .0, y) * ss(.44, .3, x) * ss(-.44, -.3, x);
+      alb = mix(vec3f(.98, .9, .62), vec3f(1., .66, .08), ss(-.09, -.03, y));
+      alb = mix(alb, vec3f(.3, .2, .04), ss(.05, .1, y) * .7);
+      alb = mix(alb, vec3f(.05, .05, .04), bar * .85);
+      emi = vec3f(1., .65, .1) * .05;
+      fc = vec3f(1., .78, .1); fg = fc * .35; ir = .3;
     }
     case 5u: {
       let bd = min(min(abs(x - .27), abs(x + .02)), abs(x + .3)); let wb = ss(.05, .035, bd);
@@ -749,6 +754,19 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
       let st = ss(.022, .008, abs(y - .045));
       alb = mix(mix(vec3f(.8, .85, .9), vec3f(.08, .4, .95), ss(-.02, .05, y)), vec3f(1., .85, .1), st);
       emi = vec3f(1., .8, .1) * st * .25; fc = vec3f(1., .85, .15); fg = fc * .4;
+    }
+    case 12u: { // bluestripe snapper: yellow, four electric-blue lines along the flank, pale belly
+      let ln = ss(.3, .8, sin(y * 120. + .9)) * ss(-.04, -.01, y) * ss(.1, .07, y) * ss(.42, .3, x) * sat(1.6 - fwy * 120.);
+      alb = mix(vec3f(.97, .93, .8), mix(vec3f(1., .72, .05), vec3f(.8, .5, .03), back * .7), ss(-.07, -.02, y));
+      alb = mix(alb, vec3f(.25, .7, 1.), ln);
+      emi = vec3f(.2, .6, 1.) * ln * .5 + vec3f(1., .7, .05) * .04;
+      fc = vec3f(1., .78, .08); fg = fc * .4;
+    }
+    case 13u: { // fairy basslet: violet head and shoulders running into a gold tail
+      let t = ss(.12, -.14, x + .06 * sin(y * 60.));
+      alb = mix(vec3f(.6, .1, .92), vec3f(1., .78, .06), t) * (.85 + .15 * back);
+      emi = alb * .07;
+      fc = mix(vec3f(.72, .2, 1.), vec3f(1., .8, .1), t); fg = fc * .5; ir = .3;
     }
     default: {
       alb = mix(vec3f(.5, .95, .8), vec3f(.2, .7, .9), back); ir = .7; fc = alb; fg = vec3f(.3, 1., .8) * .5;

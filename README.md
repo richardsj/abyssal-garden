@@ -27,8 +27,8 @@ Nothing to install, and it works offline. It needs a browser with **WebGPU**. If
 - **Light rays** streaming down from a wavy surface, with shimmering caustics on the sea floor
 - **A sunken wooden ship**, a **giant stone whale tail**, rock arches and canyons
 - **Manta rays**, rising bubbles and drifting particles
-- **Reef fish** in glowing fantasy colours: clouds of anthias over the coral gardens, triggerfish, parrotfish, pairs of butterflyfish and idols, schools of fusiliers, chromis and blue tang
-- **Bait balls**: thousands of silver fish swirling in open water, parting as larger hunters cut through them
+- **Reef fish** in glowing fantasy colours: clouds of anthias over the coral gardens, triggerfish, parrotfish, pairs of butterflyfish and idols, schools of bluestripe snappers, violet-and-gold fairy basslets, fusiliers, chromis and blue tang
+- **Bait balls**: thousands of silver fish swirling in open water, parting as golden, dark-barred hunters cut through them
 - **Anemones** with clownfish among the tentacles, **soft corals** bending in the current, sea whips and carpets of pulsing polyps
 - **A purple grotto** with glowing magenta ground cover, coral and barrel sponges
 - **A soundscape** made up as you listen: a deep rumble, distant whale calls, soft chimes and bubbles
