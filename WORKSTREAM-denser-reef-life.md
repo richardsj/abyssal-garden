@@ -35,6 +35,13 @@ takes longer than 16.7 ms. That is allowed by the decision above, but each phase
   - Sea whips and polyp carpets come from only 520 candidate spots, with the same 45% rule.
   - Everything is kept 2.2-3.5 m (anemones 6 m) clear of the scripted camera path (`nearFly`), so the rock the
     camera passes closest to is the emptiest.
+  - Loose rock is bare by construction (owner's observation, 2026-11-18, confirmed in the code): the floating
+    boulders (20 clusters, `BOULD`) and the boulders resting on the seabed are separate objects, and all growth is
+    placed on vertices of the main terrain only. The six fixed viewpoints catch floating rocks only at the frame
+    edges (viewpoint 3 left, viewpoint 5 top), so the standard stills under-report this.
+  - A floating rock bobs by `sin(time * .3 + seed * 40) * amplitude` in the solid shader. Sponges and corals use the
+    same shader and fields, so one given its boulder's seed and amplitude rides it exactly (the satellite rocks
+    already do). Sea whips, polyps and anemones use the tentacle shader, which has no bob.
 - The round-6 blind critic already named the result: "dark low-detail rock fills most of the frame" at flight seconds
   17, 23, 52 and 57-58 (milder at 4 and 8), and "twelve consecutive seconds of kelp only" (25-36).
   These are the before/after test moments for this workstream.
@@ -52,7 +59,9 @@ runs with a cool-down between them, the minified size of `index.html`, and the o
 - Count what exists: pieces per kind (corals, sponges, soft corals, anemones, whips, polyps, fish per species).
 - A bare-rock number: for a sample of rock surface, the share that has no growth within 2 m. Computed by the
   generator in the dev build, so every later phase can quote one number for "less barren".
-- Stills at the six viewpoints and at flight seconds 4, 8, 17, 23, 30, 52, 57.5.
+- Stills at the six viewpoints and at flight seconds 4, 8, 17, 23, 30, 52, 57.5, plus views aimed at floating
+  rocks, which the fixed viewpoints miss.
+- Count the floating and resting boulders (the bare-rock number samples terrain only and does not see them).
 - Benchmark on a cool, quiet machine (twice, a couple of minutes apart).
 - Check the limits: instance buffer sizes, world-generation time and memory, what Low and Medium detail scale down.
 
@@ -62,6 +71,8 @@ runs with a cool-down between them, the minified size of `index.html`, and the o
 - Let low-profile growth (polyp carpets, small corals and sponges) come closer to the camera path than the tall
   pieces do, so the nearest rock is no longer the emptiest. Tall pieces keep their clearance.
 - Aim it at the flagged flight moments first, then everywhere.
+- Growth on loose rock: sponges and corals on the floating boulders (riding the bob) and on the resting boulders.
+  Tentacle life on floating rocks needs a bob added to the tentacle shader; decide after seeing sponges and corals.
 
 ### Phase 2: more corals and anemones
 
@@ -95,4 +106,9 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
 
 ## Status log
 
-- 2026-11-18: workstream created, decisions recorded. Nothing built yet. Next: phase 0.
+- 2026-11-18: workstream created, decisions recorded.
+- 2026-11-18: phase 0 done, no visual change. Report: `test-probe-steps/20261118_1050-denser-reef-phase-0-baseline/REPORT.md`.
+  Baseline: 63.8% of rock has no reef life within 2 m, 31.8% has nothing at all (walls 46.8%, overhangs 50.7%);
+  0 of 225 large boulders (87 floating, 138 resting) have anything on them; GPU 7.9-8.0 ms average, 10.6-10.8 ms
+  99th percentile. Corals cost about ten times a sponge in triangles; shadows are baked once, so more props cost
+  only when on screen. Tooling: `dev.html?census=1` + `dev.census()`, scripts in `_scratch/`. Next: phase 1.

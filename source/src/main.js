@@ -332,9 +332,10 @@ Q.writeTexture({ texture: tMap }, Wd.gm, { bytesPerRow: 2048 }, [512, 512]);
   r.end();
   Q.submit([e.finish()]);
 }
-// the GPU has its own copies now: let go of the generator's (about 300 MB)
-for (const o of [Wd.big, Wd.bigF, Wd.small, Wd.tent, ...Wd.chunks, ...Wd.props]) o.buf = o.data = 0;
-Wd.glints = Wd.volD = Wd.gm = T.vb = T.ib = T.wp = T.wn = 0;
+// the GPU has its own copies now: let go of the generator's (about 300 MB). The dev build keeps them when opened as
+// dev.html?census=1, for dev.census(): build.mjs wraps the lines marked @census-keeps in that test.
+for (const o of [Wd.big, Wd.bigF, Wd.small, Wd.tent, ...Wd.chunks, ...Wd.props]) o.buf = o.data = 0; // @census-keeps
+Wd.glints = Wd.volD = Wd.gm = T.vb = T.ib = T.wp = T.wn = 0; // @census-keeps
 
 // ---------------------------------------------------------------- render targets (rebuilt on resize)
 // The scene is drawn at `pix` pixels and scaled up to the window. frame() tunes it and the draw distance scale `det`

@@ -36,6 +36,67 @@
     // camera at (x, y, z) looking at (tx, ty, tz), scene clock held at t if given
     look(x, y, z, tx, ty, tz, t) { pin(); stop(); lookAt(x, y, z, tx, ty, tz); F[VX] = F[VY] = F[VZ] = 0; if (t >= 0) fixT = t; },
     terrain: [T.nv, T.start[T.start.length - 1]], FLY, at(t) { F[FLT] = t; flyAt(); return [F[SPL], F[CX], F[CY], F[CZ], F[YAW], F[PIT]]; }, balls: Wd.BALLS, spots: Wd.SPOTS, anemones: Wd.ANEM, fishRanges: Wd.fishR, fish: Wd.fish,
+    // What grows where (WORKSTREAM-denser-reef-life.md): counts per kind, and how much rock has nothing growing near it.
+    // Rock = terrain vertices below 8 m depth within 170 m of the centre, the same ones the generator places growth on.
+    // "bare" = nothing rooted within 2 m. Reef life = sponges, corals, soft corals, anemones, sea whips, polyps;
+    // plants = kelp, foliage and ground cover. nearPath = within 10 m of the scripted flight; perSecond = within 10 m
+    // of the camera at each second of it.
+    // Needs the page opened as dev.html?census=1, which keeps the generator's data instead of freeing it after upload.
+    census() {
+      if (!T.wp) return { error: 'the generator data was freed: open dev.html?census=1' };
+      const C = 2, key = (x, y, z) => floor(x / C) + 512 + 1024 * (floor(y / C) + 512 + 1024 * (floor(z / C) + 512));
+      // growth rooted in the same 25 cm cube counts once, so a polyp carpet or kelp column is a few points, not thousands
+      const S = 0.25, key2 = (x, y, z) => floor(x / S) + 2048 + 4096 * (floor(y / S) + 2048 + 4096 * (floor(z / S) + 2048)), seen = [new Set(), new Set()];
+      const grid = [new Map(), new Map()], put = (g, x, y, z) => { const k2 = key2(x, y, z); if (seen[g].has(k2)) return; seen[g].add(k2); const k = key(x, y, z); let a = grid[g].get(k); if (!a) grid[g].set(k, a = []); a.push(x, y, z); };
+      const t0 = performance.now(); let tGrid = 0, truncated = false;
+      const props = {}; PROPM.forEach((m, i) => { const d = Wd.props[i].data; props['mesh' + m] = Wd.props[i].n; for (let k = 0; k < d.length; k += 12) put(0, d[k], d[k + 1], d[k + 2]); });
+      const td = Wd.tent.data, tk = [0, 0, 0];
+      for (let k = 0; k < td.length; k += 12) { const kind = td[k + 8]; tk[kind]++; if (kind !== 1 || !(tk[1] & 7)) put(0, td[k], td[k + 1], td[k + 2]); }
+      const leaves = {}; for (const [name, L] of [['big', Wd.big], ['small', Wd.small]]) {
+        const f = new Float32Array(L.buf), u8 = new Uint8Array(L.buf);
+        const byType = new Uint32Array(256);
+        for (let k = 0; k < L.n; k++) { byType[u8[k * 36 + 32]]++; put(1, f[k * 9], f[k * 9 + 1], f[k * 9 + 2]); }
+        byType.forEach((n, ty) => { if (n) leaves[name + 'Type' + ty] = n; });
+      }
+      tGrid = performance.now() - t0;
+      // 0 = something within 1 m, 1 = within 2 m, 2 = nothing within 2 m
+      const near = (g, x, y, z) => {
+        let best = 9;
+        for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) {
+          const arr = grid[g].get(key(x + a * C, y + b * C, z + c * C)); if (!arr) continue;
+          for (let i = 0; i < arr.length; i += 3) { const d = (arr[i] - x) ** 2 + (arr[i + 1] - y) ** 2 + (arr[i + 2] - z) ** 2; if (d < best) { best = d; if (d < 1) return 0; } }
+        }
+        return best < 4 ? 1 : 2;
+      };
+      const nPath = flyPts.length - POSES.length, tally = () => ({ samples: 0, reefWithin1m: 0, bareOfReef: 0, bareOfAll: 0 });
+      const out = { all: tally(), upFacing: tally(), walls: tally(), overhangs: tally(), nearPath: tally() }, perSecond = Array.from({ length: 61 }, tally);
+      const add = (t, r, p) => { t.samples++; if (!r) t.reefWithin1m++; if (r > 1) { t.bareOfReef++; if (p > 1) t.bareOfAll++; } };
+      const step = max(1, floor(T.nv / 200000));
+      for (let v = 0, n = 0; v < T.nv; v += step) {
+        if (!(++n & 1023) && performance.now() - t0 > 20000) { truncated = true; break; } // never hang the page
+        const x = T.wp[v * 3], y = T.wp[v * 3 + 1], z = T.wp[v * 3 + 2], ny = T.wn[v * 3 + 1];
+        if (hypot(x, z) > 170 || y > -8) continue;
+        const r = near(0, x, y, z), p = r > 1 ? near(1, x, y, z) : 0;
+        add(out.all, r, p); add(ny > 0.5 ? out.upFacing : ny < -0.3 ? out.overhangs : out.walls, r, p);
+        let np = false; for (let i = 0; i < nPath; i++) { const q = flyPts[i]; if ((q[0] - x) ** 2 + (q[1] - y) ** 2 + (q[2] - z) ** 2 < 100) { np = true; if (!(i % 10)) add(perSecond[i / 10], r, p); } }
+        if (np) add(out.nearPath, r, p);
+      }
+      // Loose rock, which the generator never plants anything on: boulders (meshes 0-3) are separate objects, floating
+      // (they bob) or resting on the seabed. "Big" = scale over 1.1; the small ones are satellites and rubble.
+      const sd = Wd.solids.data, boulders = { floating: 0, floatingBig: 0, resting: 0, restingBig: 0 }, bigFloat = [];
+      for (let m = 0; m < 4; m++) { const [s, n] = Wd.solids.ranges[m]; for (let i = s; i < s + n; i++) { const k = i * 12, sc = sd[k + 3], fl = sd[k + 11] > 0; boulders[fl ? 'floating' : 'resting']++; if (sc > 1.1) { boulders[fl ? 'floatingBig' : 'restingBig']++; if (fl) bigFloat.push([+sd[k].toFixed(1), +sd[k + 1].toFixed(1), +sd[k + 2].toFixed(1), +sc.toFixed(2)]); } } }
+      bigFloat.sort((a, b) => b[3] - a[3]);
+      const pc = (t) => ({ samples: t.samples, reefWithin1mPct: +(100 * t.reefWithin1m / t.samples).toFixed(1), bareOfReefPct: +(100 * t.bareOfReef / t.samples).toFixed(1), bareOfAllPct: +(100 * t.bareOfAll / t.samples).toFixed(1) });
+      const rock = {}; for (const k in out) rock[k] = pc(out[k]);
+      return {
+        detail: LV, terrainVertices: T.nv, sampleStep: step, truncated, gridMs: Math.round(tGrid), totalMs: Math.round(performance.now() - t0),
+        distinctPoints: { reef: seen[0].size, plants: seen[1].size },
+        props, propTriangles: Object.fromEntries(PROPM.map((m) => ['mesh' + m, meshes[m].ib.length / 3])), anemones: Wd.ANEM.length, anemoneTentacles: tk[0], polyps: tk[1] / 8, seaWhips: tk[2], leaves,
+        rockChunks: Wd.chunks.map((c) => c.n), fishPerMesh: Wd.fishR.map((r) => r[1]), fishTotal: Wd.fish.length / 12,
+        boulders, bigFloatingBoulders: bigFloat, // [x, y, z, scale], largest first
+        rock, samplesPerFlightSecond: perSecond.map((t) => t.samples), bareOfReefPctPerFlightSecond: perSecond.map((t) => t.samples ? Math.round(100 * t.bareOfReef / t.samples) : -1), bareOfAllPctPerFlightSecond: perSecond.map((t) => t.samples ? Math.round(100 * t.bareOfAll / t.samples) : -1),
+      };
+    },
     bench() { pin(); dev.result = null; startFlight(true); },
     flight() { pin(); startFlight(false); }, get flying() { return flying; },
     get gpu() { return F[GPU]; },

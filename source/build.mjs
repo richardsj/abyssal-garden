@@ -16,6 +16,8 @@ const out = bench ? 'bench.html' : dev ? 'dev.html' : 'index.html';
 if (dev) FILES.push('dev.js');
 
 let js = FILES.map((f) => readFileSync(path.join(here, 'src', f), 'utf8')).join('\n');
+// dev builds opened with ?census=1 keep the generator's data that main.js otherwise frees after upload (for dev.census())
+if (dev) js = js.replace(/^(.*)\/\/ @census-keeps$/gm, (_, line) => `if (!/census/.test(location.search)) { ${line} }`);
 const tpl = readFileSync(path.join(here, 'template.html'), 'utf8');
 // everything runs inside one async function; startup errors are shown on screen
 const wrap = (body) => `(async()=>{${body}\n})().catch(e=>{console.error(e);document.body.className='l e';document.getElementById('s').textContent=(e.cause?'':'Failed to start: ')+e.message});`;

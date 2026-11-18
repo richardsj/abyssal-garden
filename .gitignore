@@ -9,3 +9,5 @@ test-probe-steps/**/*.mp4
 .DS_Store
 # benchmark results are small and the reports cite them
 !test-probe-steps/**/bench-*.json
+# so are the reef census results (denser-reef-life workstream): each phase compares against the baseline
+!test-probe-steps/**/census-*.json
