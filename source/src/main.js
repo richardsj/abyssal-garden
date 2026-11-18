@@ -279,7 +279,8 @@ D = Wd.gy = T.smp = null; // with gy goes the generator's working memory (about 
 await say('Building set pieces…', 0.94, 1200);
 // mesh ids: 0-3 boulders, 4-6 sponges, 7-8 coral, 9 tube sponge, 10 whale fluke, 11 ship, 12 manta, 13 bait fish,
 // 14-20 rock chunks + pebbles, 21-22 coral LOD, 23-25 far LOD of the large rock chunks, 26-32 the other fish,
-// 33-34 soft coral, 35 anemone column
+// 33-34 soft coral, 35 anemone column, 36 cuttlefish. The ids up to 35 are used by number elsewhere (PROPM, solid(),
+// the LOD offsets), so a new shape goes on the end.
 const fishShapes = meshFishes().map((m) => m.build());
 const meshes = [meshChunk(1, 3), meshChunk(7, 3), meshChunk(13, 3), meshChunk(22, 3),
   meshLathe([[0, 0, 0.5], [0.34, 0, 0.6], [0.5, 0.2, 0.85], [0.6, 0.6, 1], [0.55, 0.95, 1], [0.47, 1.08, 1], [0.38, 1.1, 0.9], [0.3, 1.0, 0.45], [0.26, 0.6, 0.15], [0, 0.35, 0.05]], 18, 0.3, 9),
@@ -288,8 +289,8 @@ const meshes = [meshChunk(1, 3), meshChunk(7, 3), meshChunk(13, 3), meshChunk(22
   meshCoral(0), meshCoral(1), meshTubes()].map((m) => m.build());
 meshes.push(meshFluke(), meshShip().build(), meshManta().build(), fishShapes[0],
   meshChunk(3).build(), meshChunk(11).build(), meshChunk(29).build(), meshChunk(5, 3).build(), meshChunk(17, 3).build(), meshChunk(41, 3).build(), meshChunk(9, 1).build(), meshCoral(0, 1).build(), meshCoral(1, 1).build(), meshChunk(5, 2, 1).build(), meshChunk(17, 2, 1).build(), meshChunk(41, 2, 1).build());
-meshes.push(...fishShapes.slice(1), meshSoft(0).build(), meshSoft(1).build(),
-  meshLathe([[0, 0, 0.5], [0.33, 0, 0.5], [0.37, 0.1, 0.6], [0.34, 0.22, 0.7], [0.2, 0.3, 0.6], [0, 0.31, 0.5]], 14, 0.2).build());
+meshes.push(...fishShapes.slice(1, 8), meshSoft(0).build(), meshSoft(1).build(),
+  meshLathe([[0, 0, 0.5], [0.33, 0, 0.5], [0.37, 0.1, 0.6], [0.34, 0.22, 0.7], [0.2, 0.3, 0.6], [0, 0.31, 0.5]], 14, 0.2).build(), ...fishShapes.slice(8));
 let nV = 0, nI = 0;
 for (const m of meshes) { m.v0 = nV; m.i0 = nI; nV += m.nv; nI += m.ib.length; }
 const allV = new Uint8Array(nV * 16), allI = new Uint32Array(nI);

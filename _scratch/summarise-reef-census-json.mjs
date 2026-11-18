@@ -21,7 +21,7 @@ const life = (c) => ({
   'fish, all': c.fishTotal,
   'fish: bait': c.fishPerMesh[0], 'fish: slim schooling and anthias': c.fishPerMesh[1], 'fish: triggerfish': c.fishPerMesh[2],
   'fish: hunters': c.fishPerMesh[3], 'fish: clownfish': c.fishPerMesh[4], 'fish: disc (tang, butterflyfish)': c.fishPerMesh[5],
-  'fish: idols': c.fishPerMesh[6], 'fish: parrotfish': c.fishPerMesh[7],
+  'fish: idols': c.fishPerMesh[6], 'fish: parrotfish': c.fishPerMesh[7], 'cuttlefish (counted with the fish)': c.fishPerMesh[8] || 0,
 });
 console.log(`Detail level ${d.detail} (0 = High), ${d.size}, world ready within ${d.worldReadyMsAtOrBefore} ms, page memory ${d.jsHeapMB} MB with census data kept\n`);
 console.log('| Kind | Count |\n|---|---|');

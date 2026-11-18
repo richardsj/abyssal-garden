@@ -140,8 +140,18 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
 - 2026-11-18: glow approved by the owner ("I like it. It could be even more bright") and committed. At the owner's
   request the whole branch was fast-forwarded onto `main` and pushed, so the live site now has the denser reef, no
   floating rocks, the colourful fish, the clear sapphire water and the glow.
-- Queue: a brighter glow (owner's remark); the waves (real swell and a wind-driven pattern first, then light tied
-  to the waves); the owner may suggest water values of their own.
+- 2026-11-18: next three steps agreed, in this order: cuttlefish (shimmering, hovering; not octopus), jellyfish in
+  the open water the floating rocks left empty, then a night dive (a key that fades the sun to moonlight so the glow
+  carries the scene; fold in the brighter glow and a plankton wake from the drifting particles).
+- 2026-11-18: cuttlefish built, NOT yet approved or committed. 17 of them on the fish system: a ninth shape (mesh
+  id 36), behaviour 5 (hover, turn three-quarters toward the viewer, ease back), colour 14 (bands that travel; a zebra
+  display up close). Report: `test-probe-steps/20261118_1340-cuttlefish/REPORT.md`.
+- 2026-11-18: cuttlefish approved ("Cuttlefish great!") and committed locally; not pushed. The owner noticed one by
+  the opening scene "didn't move away" and said curious-but-cautious behaviour can be defined "whenever it suits".
+  Cause: the retreat is deliberately small (about 0.5 m at 3 m). Doing it properly (drift toward a still diver, back
+  off from a fast one) needs the camera's speed passed to the fish shader, which has only its position today.
+- Queue after those: curious-but-cautious cuttlefish; the waves (real swell and a wind-driven pattern first, then light tied to the waves); the
+  owner may suggest water values of their own.
 - 2026-11-18: benchmark method. The reading depends on how much of the browser window is on screen (a run during
   which the owner resized the window to fit the screen read 17 ms against 8-9 ms). Keep the window as it is for
   every run of a comparison and record it; do not compare runs across a resize.

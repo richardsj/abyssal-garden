@@ -28,6 +28,7 @@ Nothing to install, and it works offline. It needs a browser with **WebGPU**. If
 - **A sunken wooden ship**, a **giant stone whale tail**, rock arches and canyons
 - **Manta rays**, rising bubbles and drifting particles
 - **Reef fish** in glowing fantasy colours: clouds of anthias over the coral gardens, triggerfish, parrotfish, pairs of butterflyfish and idols, schools of bluestripe snappers, violet-and-gold fairy basslets, fusiliers, chromis and blue tang
+- **Cuttlefish** hovering over the reef on a rippling skirt fin: dark bands pass down their skin, and when you come close they turn to watch you and flush into zebra stripes
 - **Bait balls**: thousands of silver fish swirling in open water, parting as golden, dark-barred hunters cut through them
 - **Anemones** with clownfish among the tentacles, **soft corals** bending in the current, sea whips and carpets of pulsing polyps, their tips giving off a light of their own
 - **Fluorescent corals**: about half the colonies glow neon green, cyan or orange under the blue light, and the chromis carry a row of light spots along the flank

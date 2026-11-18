@@ -533,8 +533,9 @@ function makeWorld(D, T, flyPts, POSES) {
     }
   }
   // 12 floats per fish: home xyz, radius | seed, speed, size, phase | colours, behaviour, two behaviour parameters
-  // (see vsFish). One list per mesh: 0 bait, 1 slim, 2 triggerfish, 3 hunter, 4 clownfish, 5 disc, 6 idol, 7 parrotfish
-  const fishK = Array.from({ length: 8 }, () => []);
+  // (see vsFish). One list per mesh: 0 bait, 1 slim, 2 triggerfish, 3 hunter, 4 clownfish, 5 disc, 6 idol, 7 parrotfish,
+  // 8 cuttlefish
+  const fishK = Array.from({ length: 9 }, () => []);
   const fishAdd = (kind, x, y, z, R, speed, size, phase, col, beh, p1 = 1, p2 = 0) => fishK[kind].push(x, y, z, R, rnd(), speed, size, phase, col, beh, p1, p2);
   // open water within r of a point? (14 directions)
   const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]; for (let i = 0; i < 8; i++) DIRS.push([i & 1 ? 0.58 : -0.58, i & 2 ? 0.58 : -0.58, i & 4 ? 0.58 : -0.58]);
@@ -588,6 +589,16 @@ function makeWorld(D, T, flyPts, POSES) {
   loner(7, 9, 18, 1.6, 3, 3, 5, 0.6, 0.8, 0.07, 0.11);
   loner(5, 6, 22, 1.5, 4, 2.5, 4.5, 0.34, 0.4, 0.1, 0.16, 1);
   loner(6, 8, 10, 2, 5, 3, 5, 0.4, 0.46, 0.09, 0.14, 1);
+  // cuttlefish (2026-11-18): hovering singly a metre or two over the reef, most of them by the gardens and three where
+  // the first and fourth viewpoints look. Behaviour 5; the radius is how far one drifts from its spot. They use a
+  // random seed of their own, put back afterwards, so nothing placed later changes.
+  {
+    const seedBefore = _seed; rseed(20);
+    const cuttle = (x, z, spread) => { const p = spot(x, z, 0.9, 2.2, 1.5, spread); if (!p) return; SPOTS.push([8, ...p]); fishAdd(8, p[0], p[1], p[2], rr(0.5, 1.3), 0, rr(0.55, 0.9), rnd(), 14, 5); };
+    for (const a of [rel(0, 7, 1.5), rel(0, 11, -3), rel(3, 7, 1)]) cuttle(a[0], a[1], 3);
+    for (let i = 0; i < 14; i++) { const g = GARD[(rnd() * GARD.length) | 0]; if (!(i % THIN)) cuttle(g[0], g[1], 10); }
+    _seed = seedBefore;
+  }
   const fish = [], fishR = []; { let n = 0; for (const a of fishK) { fishR.push([n, a.length / 12]); n += a.length / 12; for (let i = 0; i < a.length; i++) fish.push(a[i]); } }
   const mantas = [];
   for (const m of [[1, -28, 3.5, 14, 3.012, 0.085, 3.6, 0.1], [49, -31, 24.5, 5, 0.029, -0.08, 3.7, 0.4], [0, -14, -80, 34, 0.3, 0.06, 5.2, 0.7], [-50, -18, 20, 26, 5, -0.075, 3.8, 0.55], [10, -16, 86, 26, 2.2, 0.07, 4.4, 0.85], [20, -11, -20, 46, 4.2, -0.045, 5.6, 0.25]]) mantas.push(...m);
@@ -816,6 +827,35 @@ function meshFishKind(H, W, fins, pec = 0.16, R = 12) {
   return m;
 }
 // the eight fish shapes, in the order of the instance lists in makeWorld
+// Cuttlefish (2026-11-18): the arm tips at +x where a fish has its nose. A flattened oval mantle with a skirt fin down
+// both sides, a head, and eight short arms held together in a cone. aux > 0 marks what ripples (fin, arms), as for fins.
+function meshCuttle() {
+  const m = new Mesh(), R = 12, rings = [];
+  // x, half height, half width: head (the first four), then the mantle
+  const B = [[0.3, 0.045, 0.05], [0.27, 0.07, 0.08], [0.22, 0.075, 0.085], [0.17, 0.065, 0.08], [0.12, 0.085, 0.12], [0.02, 0.11, 0.155], [-0.12, 0.115, 0.165], [-0.26, 0.1, 0.15], [-0.38, 0.07, 0.11], [-0.46, 0.04, 0.06], [-0.495, 0.012, 0.02]];
+  for (const [x, h, w] of B) { const r = []; for (let k = 0; k < R; k++) { const a = k / R * TAU, sy = sin(a); r.push(m.v(x, sy * h * (sy > 0 ? 1 : 0.85), cos(a) * w, 0)); } rings.push(r); } // a little flatter underneath
+  for (let i = 0; i < rings.length - 1; i++) for (let k = 0; k < R; k++) { const k2 = (k + 1) % R; m.quad(rings[i][k], rings[i][k2], rings[i + 1][k2], rings[i + 1][k]); }
+  const c0 = m.v(0.31, 0, 0, 0), c1 = m.v(-0.5, 0, 0, 0), L = rings.length - 1;
+  for (let k = 0; k < R; k++) { const k2 = (k + 1) % R; m.tri(c0, rings[0][k2], rings[0][k]); m.tri(c1, rings[L][k], rings[L][k2]); }
+  // the skirt fin: a ribbon down each side of the mantle, rooted just inside it, widest in the middle
+  for (const sx of [-1, 1]) {
+    const rows = [];
+    for (let j = 0; j <= (B.length - 5) * 3; j++) { // three rows to each body ring, so the wave along it is smooth
+      const f = 4 + j / 3, i = min(B.length - 2, floor(f)), u = f - i, x = mix(B[i][0], B[i + 1][0], u), w = mix(B[i][2], B[i + 1][2], u);
+      const fw = 0.065 * sqrt(sin(PI * clamp((f - 3.6) / (B.length - 4.2), 0, 1)));
+      rows.push([m.v(x, -0.005, sx * w * 0.9, 0.04), m.v(x, -0.005, sx * (w + fw * 0.5), 0.5), m.v(x, -0.005, sx * (w + fw), 1)]);
+    }
+    for (let j = 1; j < rows.length; j++) for (let c = 0; c < 2; c++) m.quad(rows[j - 1][c], rows[j][c], rows[j][c + 1], rows[j - 1][c + 1]);
+  }
+  // eight thick arms from the front of the head, held together, closing to a point and drooping a little; two longer
+  for (let k = 0; k < 8; k++) {
+    const a = (k + 0.5) / 8 * TAU, len = k === 2 || k === 5 ? 0.2 : 0.17, sa = sin(a), ca = cos(a);
+    m.tube([[0.3, sa * 0.028, ca * 0.036], [0.3 + len * 0.5, sa * 0.022 - 0.008, ca * 0.026], [0.3 + len, sa * 0.008 - 0.02, ca * 0.01]], (j) => [0.024, 0.017, 0.005][j], 5, true, (j) => [0.06, 0.25, 0.55][j]);
+  }
+  // the eyes bulge from the sides of the head (the pupil is painted on in fsFish)
+  for (const sx of [-1, 1]) m.tube([[0.245, 0.035, sx * 0.06], [0.245, 0.04, sx * 0.088], [0.245, 0.042, sx * 0.1]], (j) => [0.036, 0.03, 0.014][j], 7, true, () => 0);
+  return m;
+}
 function meshFishes() {
   // tail fin: root half height, length, half spread, fork (0 = square, 1 = forked to the root)
   const tail = (h, L, S, F) => [-0.41, h, -0.41 - L, S, -0.42, h * 0.5, -0.42 - L * (1 - F * 0.5), S * 0.45, -0.42, 0, -0.42 - L * (1 - F), 0, -0.42, -h * 0.5, -0.42 - L * (1 - F * 0.5), -S * 0.45, -0.41, -h, -0.41 - L, -S];
@@ -845,6 +885,8 @@ function meshFishes() {
     meshFishKind(discH, discW, [[0.26, 0.24, 0.25, 0.27, 0.1, 0.3, 0.08, 0.38, 0.03, 0.32, -0.02, 0.6, -0.02, 0.32, -0.5, 1, -0.06, 0.31, -0.16, 0.6, -0.2, 0.26, -0.28, 0.4, -0.34, 0.095, -0.39, 0.16], flip(ridge), tail(0.045, 0.2, 0.2, 0.3)], 0.14),
     // parrotfish: blunt head, low fins, crescent tail
     meshFishKind([0.05, 0.11, 0.16, 0.17, 0.12, 0.06, 0.045], [0.03, 0.06, 0.085, 0.09, 0.06, 0.025, 0.015], [low, flip(low), tail(0.045, 0.26, 0.26, 0.7)], 0.2),
+    // cuttlefish: not a fish, but it is drawn, placed and animated by the fish system
+    meshCuttle(),
   ];
 }
 

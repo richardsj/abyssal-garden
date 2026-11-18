@@ -606,7 +606,7 @@ const W_ANIM = S_B + /*wgsl*/`
 struct VI { @location(0) p: vec3f, @location(1) n: vec4f, @location(2) a: vec4f, @location(3) b: vec4f };
 struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n: vec3f, @location(2) op: vec3f, @location(3) @interpolate(flat) sd: f32, @location(4) lt: f32 };
 // Fish instances: a = home xyz + radius, b = seed, speed, size, phase, c = colours, behaviour, two behaviour parameters.
-// Behaviours: 0 ribbon school, 1 hovering cloud, 2 bait ball, 3 hunter, 4 loner. Every one is a function of time alone,
+// Behaviours: 0 ribbon school, 1 hovering cloud, 2 bait ball, 3 hunter, 4 loner, 5 cuttlefish. Every one is a function of time alone,
 // so nothing is simulated: fpos() gives where a fish is at time t, and its heading comes from asking again a moment
 // earlier and later.
 struct FI { @location(0) p: vec3f, @location(1) n: vec4f, @location(2) a: vec4f, @location(3) b: vec4f, @location(4) c: vec4f };
@@ -653,6 +653,11 @@ fn fpos(a: vec4f, b: vec4f, c: vec4f, t: f32) -> vec3f {
   if (c.y < 3.5) { // hunter c.z of its ball; followers (c.w > 0) trail the leader
     return hunter(a, b.w, c.z, t - c.w * .3) + (h - .5) * vec3f(5., 3., 5.) * step(.01, c.w);
   }
+  if (c.y > 4.5) { // cuttlefish: hovers over its spot, drifting a little, and eases back from the viewer (mostly sideways)
+    let p = a.xyz + vec3f(sin(t * .11 + s * 31.) * R, sin(t * .23 + s * 17.) * .2, cos(t * .09 + s * 23.) * R);
+    let dv = (p - g.cam.xyz) * vec3f(1., .35, 1.); let lv = length(dv);
+    return p + dv / max(lv, .01) * (1.3 * exp(-lv * lv / 10.));
+  }
   // loner: wanders a loop near home, nearly stopping now and then
   let u0 = t * b.y + b.w * 6.3; let u = u0 - .27 * sin(u0 * 3.);
   return a.xyz + vec3f(R * cos(u) + R * .3 * cos(2.7 * u + c.w * 9.), c.z * sin(1.9 * u + c.w * 5.), R * .7 * sin(u) + R * .3 * sin(2.3 * u + c.w * 4.));
@@ -663,11 +668,19 @@ fn fpos(a: vec4f, b: vec4f, c: vec4f, t: f32) -> vec3f {
   var P = fpos(i.a, i.b, i.c, t);
   // fish keep their distance from the camera (further for big fish), so none fills the view or gets cut by it;
   // bait fish are small and may come within 1 m, the viewer push in fpos() having cleared most of them away by then
-  { let dc = P - g.cam.xyz; let dl = length(dc); let md = select(1.2 + 2.6 * i.b.z, 1., bh > 1.5 && bh < 2.5); P += dc / max(dl, .01) * max(md - dl, 0.); }
+  { let dc = P - g.cam.xyz; let dl = length(dc); let md = select(select(1.2 + 2.6 * i.b.z, 1., bh > 1.5 && bh < 2.5), 1.6, bh > 4.5); P += dc / max(dl, .01) * max(md - dl, 0.); }
   var v = (fpos(i.a, i.b, i.c, t + .1) - fpos(i.a, i.b, i.c, t - .1)) * 5.;
   let sp = min(length(v), 5.);
   // hovering fish face into the current
   if (bh > .5 && bh < 1.5) { v += vec3f(cos(i.b.w * 6.3), 0., sin(i.b.w * 6.3)) * .7; }
+  // A cuttlefish barely moves, so where it is going says nothing about where it faces: it turns slowly on the spot, and
+  // when the viewer comes within a few metres it swings round to watch, three-quarters on (about 50 degrees off, to one
+  // side or the other by its seed), so its flank and the display on it stay in view, while fpos() eases it backward.
+  if (bh > 4.5) {
+    let a0 = i.b.w * 6.3 + sin(t * .13 + s * 9.) * 1.3; let tc = g.cam.xyz - P; let q = normalize(tc.xz + vec2f(1e-3, 0.));
+    let an = select(-.9, .9, fract(s * 7.) > .5); let ca = cos(an); let sa = sin(an);
+    v = mix(vec3f(cos(a0), 0., sin(a0)), vec3f(q.x * ca - q.y * sa, 0., q.x * sa + q.y * ca), ss(7., 3., length(tc)));
+  }
   // fish swim close to level: the climb or dive is at most a third of the forward speed
   { let hl = length(v.xz) + .05; v.y = clamp(v.y * .6, -.33 * hl, .33 * hl); }
   let T = normalize(v + vec3f(1e-3, 0., 0.));
@@ -675,8 +688,12 @@ fn fpos(a: vec4f, b: vec4f, c: vec4f, t: f32) -> vec3f {
   let sz = i.b.z * (.8 + .4 * hs(s + .71)); let fi = abs(i.n.w);
   var l = i.p * sz; let tw = .5 - i.p.x;
   // swimming: a wave that grows toward the tail, harder when the fish is fast; fins ripple on their own
-  l.z += sin(t * 6. / sqrt(i.b.z) + s * 50. + i.p.x * 5.) * (.04 + .025 * sp) * tw * tw * sz;
-  l.z += sin(t * 12. + i.p.x * 20. + s * 9.) * fi * .04 * sz;
+  if (bh > 4.5) { // cuttlefish: a rigid mantle; a wave runs back along the skirt fin, and the arms stir
+    l.y += sin(t * 7. - i.p.x * 22. + s * 9.) * fi * .038 * sz;
+  } else {
+    l.z += sin(t * 6. / sqrt(i.b.z) + s * 50. + i.p.x * 5.) * (.04 + .025 * sp) * tw * tw * sz;
+    l.z += sin(t * 12. + i.p.x * 20. + s * 9.) * fi * .04 * sz;
+  }
   let w = P + T * l.x + Up * l.y + S * l.z;
   o.cp = g.vp * vec4f(w, 1.); o.wp = w; o.n = T * i.n.x + Up * i.n.y + S * i.n.z; o.op = vec4f(i.p, i.n.w);
   var pan = 0.;
@@ -699,6 +716,7 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
   let back = ss(-.03, .08, y);
   let fwy = fwidth(y); let fwx = fwidth(x); // for fading fine stripes and spots before they shimmer (derivatives must be taken outside the switch)
   var alb = vec3f(.5); var emi = vec3f(0.); var ir = .2; var fc = vec3f(.5); var fg = vec3f(0.);
+  var eye = vec2f(.36, .035); // where the eye is painted; the cuttlefish has its head further back
   switch (u32(i.sd.y + .5)) {
     case 0u: {
       alb = mix(vec3f(.5, .62, .74), vec3f(.07, .2, .4), back);
@@ -785,6 +803,26 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
       emi = alb * .07;
       fc = mix(vec3f(.72, .2, 1.), vec3f(1., .8, .1), t); fg = fc * .5; ir = .3;
     }
+    case 14u: { // cuttlefish: skin that changes. Left alone, a sandy mottle with dark bands passing down the mantle;
+      // as the viewer comes close it flushes into pale and dark zebra stripes under a shifting iridescent tint.
+      let tt = g.cam.w; let nr = ss(6.5, 2.5, distance(g.cam.xyz, i.wp));
+      // calm: blotches of ochre and dark brown with small pale spots, and clouds of dark passing down the mantle
+      let mot = .5 + .5 * sin(x * 31. + sin(y * 47. + s * 9.) * 1.7) * sin(y * 43. + x * 11. + s * 5.);
+      let spt = ss(.8, .95, sin(x * 90. + s * 3.) * sin(y * 90. + s * 7.));
+      let wave = ss(.3, .75, .5 + .5 * sin(x * 13. + tt * 2.2 + s * 20. + sin(y * 30.) * .8));
+      let calm = mix(vec3f(.5, .36, .2), vec3f(.2, .11, .06), mot * .7) * (1. - .55 * wave) + vec3f(.5, .45, .35) * spt * .5;
+      // display: wavy pale lines across a dark maroon mantle, behind the head
+      let zeb = ss(.35, .65, .5 + .5 * sin(x * 52. + sin(y * 26. + tt * .6) * 1.8 + s * 11.)) * ss(.2, .1, x);
+      let show = mix(vec3f(.3, .07, .12), vec3f(.95, .88, .7), zeb);
+      let dsp = nr * (.6 + .4 * sin(tt * 1.3 + s * 30.));
+      alb = mix(calm, show, dsp) * mix(1.1, .7, back);
+      alb = mix(alb, vec3f(.85, .8, .7), ss(-.02, -.07, y) * .5); // pale underneath
+      // a faint light that travels with the bands, and enough of its own colour to keep its warmth in blue water
+      emi = vec3f(.15, .9, .8) * wave * .05 + show * zeb * dsp * .06 + alb * .1;
+      // the fin and the arm tips run from the body's colour to an electric blue-green edge
+      fc = mix(alb, vec3f(.15, .85, 1.), ss(.4, 1., fi)); fg = vec3f(.15, .85, 1.) * .7; ir = .3;
+      eye = vec2f(.245, .04);
+    }
     default: { // chromis: pale green-blue, with a row of light spots along the flank (bioluminescent, like a lanternfish)
       alb = mix(vec3f(.5, .95, .8), vec3f(.2, .7, .9), back); ir = .7; fc = alb; fg = vec3f(.3, 1., .8) * .5;
       // round spots, ten to the body length; they fade out before they would shimmer
@@ -792,7 +830,7 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
     }
   }
   if (fi < .02) { // eye
-    let e = length(vec2f(x - .36, y - .035));
+    let e = length(vec2f(x, y) - eye);
     alb = mix(mix(alb, vec3f(.95, .85, .5), ss(.036, .03, e)), vec3f(.01), ss(.024, .019, e));
   }
   alb = mix(alb, fc, ss(.02, .2, fi)); emi += fg * fi * fi * .6;
