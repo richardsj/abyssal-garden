@@ -120,3 +120,31 @@ about 0.16 m of the slow rise). In the pictures the bell is lowest in the first 
 second, highest in the third and fourth, then wider and settling.
 
 Not seen in motion by Claude. The capture scripts' position formulas were updated to match.
+
+## Factor 2 of the "layered on" look: how see-through (2026-11-18, about 15:12; its own commit)
+
+Owner, after the lighting change: "I prefer this look ... not bad, not as impressive as the cuttlefish", and on
+translucency: "you're thinking slightly more opaque, right?". The owner left the order of the next steps to Claude.
+
+What changed (`fsJelly`), and nothing else:
+- the bell's opacity follows its thickness along the line of sight: `.22 + .68 * thick` where `thick` is
+  `(1 - facing the viewer) ^ 1.5`, so it is clearest looked straight through and milky toward the edge of the dome.
+  It was `.12 + .5 * (1 - facing) ^ 2`;
+- the bell's colour pales toward white by up to a quarter where it is thick;
+- the hanging parts go from 50% to 70% opaque at the root.
+
+Before and after on the same fifteen views, the "before" recaptured after the thrust so the only difference is this
+factor (`critic-set-before-translucency/`, `critic-set-after-translucency/`, pairs in `before-after-translucency/`).
+Looked at two pairs:
+- `fly_00` (pink bells at middle distance in front of rock): clearly better. Pale bodies with some volume instead of
+  ghostly tints; the rock behind is dimmed where it used to show through sharp.
+- `fly_09` (the big amber bell up close): the dome has body and hides most of the rock behind it, but it has paled
+  toward grey-beige, and the frilled arms under it now show as flat rectangular panels. That is the first critic's
+  cue 4, more exposed now.
+
+Not done: the other thirteen pairs were not inspected; not benchmarked (the same pixels are shaded, a little more
+opaque); not seen in motion. A second blind critic was started on the same ten views with the same prompt
+(`CRITIC_PROMPT_2_after-lighting-thrust-and-translucency.md`).
+
+What a see-through surface cannot do here: soften or bend what is behind it. That would need a copy of the picture to
+read from while drawing, which this renderer does not keep.

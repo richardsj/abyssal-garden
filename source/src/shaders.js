@@ -946,10 +946,13 @@ const JGLOW = .2;
     let ang = atan2(i.op.z, i.op.x);
     let rib = ss(.75, 1., .5 + .5 * cos(ang * 16.)) * ss(.15, .9, au); let rim = ss(.86, 1., au);
     let dots = rim * ss(.6, .95, .5 + .5 * cos(ang * 32.));
-    a = .12 + .5 * fr + .25 * rib + .3 * rim;
+    // Thick jelly (2026-11-18): clearest looked straight through, milky toward the edge of the dome, so it dims what is
+    // behind it and has some body. It was .12 + .5 * fr, thin enough that rock showed through sharp, only tinted.
+    let thick = pow(1. - ndv, 1.5);
+    a = .22 + .68 * thick + .2 * rib + .3 * rim; col = mix(col, vec3f(1.), .25 * thick);
     emi = glow * (.14 + .7 * rib * (.4 + .6 * sq) + 1.4 * dots * (.5 + .5 * sin(g.cam.w * 2. + ang * 3. + s * 40.)) + .35 * fr);
   } else { // hanging parts thin out toward their tips
-    let d = -au; a = .5 * (1. - .6 * d); emi = glow * (.15 + .25 * (1. - d));
+    let d = -au; a = .7 * (1. - .5 * d); emi = glow * (.15 + .25 * (1. - d));
   }
   let z = zone(i.wp); let vv = vol(i.wp); let ndl = dot(n0, L);
   // Lit by the scene (2026-11-18): the sun reaches it only out of shadow and carries the ripple; the side toward the
