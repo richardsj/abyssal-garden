@@ -1290,8 +1290,11 @@ const JGLOW = .2;
   let t = g.cam.w; let R = i.a.w; let s = i.b.x; let sz = i.b.y; let ph = i.b.z;
   // the pulse: slower for a bigger bell; a quick squeeze and a slow opening
   let pp = t * (2.6 / (.5 + sz)) + ph * TAU; let sq = pow(.5 + .5 * sin(pp), 3.);
-  // drifting round its home, rising and sinking over minutes, with a small surge after each squeeze
-  var P = i.a.xyz + vec3f(R * cos(t * .03 + ph * 5.), 1.5 * sin(t * .05 + ph * 9.) + .14 * sz * sin(pp - 1.), R * sin(t * .027 + ph * 7.));
+  // Each squeeze throws it upward by nearly half a bell radius, quickly (the first quarter of the pulse); it settles
+  // back over the rest. (Until 2026-11-18 this was a symmetric bob of .14 of the radius, too small to see.)
+  let th = fract((pp - .3) / TAU); let lift = .45 * sz * (ss(0., .25, th) - ss(.25, 1., th));
+  // drifting round its home, rising and sinking over minutes, with the thrust of each pulse on top
+  var P = i.a.xyz + vec3f(R * cos(t * .03 + ph * 5.), 1.5 * sin(t * .05 + ph * 9.) + lift, R * sin(t * .027 + ph * 7.));
   // the viewer eases it aside, and it never sits on the lens
   { let dv = P - g.cam.xyz; let lv = length(dv); let rv = 2. + sz; P += dv / max(lv, .01) * (1.6 * exp(-lv * lv / (rv * rv)) + max(sz + .9 - lv, 0.)); }
   // beyond 110 m the water hides it: put it outside the view so nothing is drawn for it

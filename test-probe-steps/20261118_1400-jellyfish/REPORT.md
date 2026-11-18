@@ -104,3 +104,19 @@ lookup per pixel on the jellyfish); not re-reviewed by a critic; not seen in mot
 Still to do, each as its own step: the height movement with each thrust (owner); then, if they still look layered
 on, translucency, then the structure inside the bell (the doubled outline, the flat arm panels, every rib and
 tentacle equally visible), then shadows cast.
+
+## The thrust (2026-11-18, about 15:05; its own commit)
+
+Owner: "pleasing pulsing, but lacking a little bit of ... height movement with each thrust". The lift per pulse was a
+symmetric bob of 14% of the bell radius (about 7 cm for a typical one). Now each squeeze throws the jellyfish upward by
+45% of its bell radius over the first quarter of the pulse, and it settles back over the remaining three quarters
+(`vsJelly`, `lift`). Net zero over a pulse, so it is still a function of the clock alone; the slow rise and sink over
+minutes is unchanged.
+
+Check: one jellyfish (bell radius 0.62 m, pulse 2.71 s) from a camera that does not move, at six evenly spaced moments
+(`thrust-six-moments/strip.jpg`, script `_scratch/chrome-capture-jellyfish-one-pulse-six-moments-as-dataurls.js`).
+Height of the bell above the first frame, from the formula: 0, 0.24, 0.34, 0.31, 0.25, 0.20 m (the last values include
+about 0.16 m of the slow rise). In the pictures the bell is lowest in the first frame, higher and narrower in the
+second, highest in the third and fourth, then wider and settling.
+
+Not seen in motion by Claude. The capture scripts' position formulas were updated to match.
