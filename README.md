@@ -28,8 +28,8 @@ Nothing to install, and it works offline. It needs a browser with **WebGPU**. If
 - **A sunken wooden ship**, a **giant stone whale tail**, rock arches and canyons
 - **Manta rays**, rising bubbles and drifting particles
 - **Reef fish** in glowing fantasy colours: clouds of anthias over the coral gardens, triggerfish, parrotfish, pairs of butterflyfish and idols, schools of bluestripe snappers, violet-and-gold fairy basslets, fusiliers, chromis and blue tang
-- **Jellyfish** in swarms near the surface: see-through bells in blue, pink, amber and violet that pulse and trail long tentacles, and drift aside as you swim through
-- **Cuttlefish** hovering over the reef on a rippling skirt fin: dark bands pass down their skin, and when you come close they turn to watch you and flush into zebra stripes
+- **Jellyfish** in swarms near the surface: see-through bells in blue, pink, amber and violet that pulse and trail long tentacles, drift aside as you swim through, and cast soft moving shadows on the kelp and reef below
+- **Cuttlefish** hovering over the reef on a rippling skirt fin: dark bands pass down their skin. They are curious but cautious: keep still for a few seconds and one glides over to look at you, face on and flushed into zebra stripes; swim off fast and it backs away and turns pale
 - **Bait balls**: thousands of silver fish swirling in open water, parting as golden, dark-barred hunters cut through them
 - **Anemones** with clownfish among the tentacles, **soft corals** bending in the current, sea whips and carpets of pulsing polyps, their tips giving off a light of their own
 - **Fluorescent corals**: about half the colonies glow neon green, cyan or orange under the blue light, and the chromis carry a row of light spots along the flank
@@ -56,6 +56,7 @@ Nothing to install, and it works offline. It needs a browser with **WebGPU**. If
 | Menu | `Esc` releases the mouse and opens the menu with the list of controls; **Resume** takes you back |
 | Day / night | `N`, or **Day** / **Night** in the menu (a link ending in `?night=1` starts at night) |
 | Sound on / off | `M` (sound starts when you dive in) |
+| Show the keys | `?` (a short hint of the main keys also shows for a few seconds after you dive in) |
 | Performance stats | `H` |
 | Detail level | **Low**, **Medium** or **High** in the menu (reloads the page) |
 

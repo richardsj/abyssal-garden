@@ -47,6 +47,8 @@ const tWater = tex(WATER, WATER, HDR, TU.RENDER_ATTACHMENT | TU.TEXTURE_BINDING,
 const tDetail = tex(1024, 1024, 'rgba8unorm', TU.RENDER_ATTACHMENT | TU.TEXTURE_BINDING, { mips: 11 });
 const tVol = tex(NX / 2, NY / 2, 'rg8unorm', TU.TEXTURE_BINDING | TU.COPY_DST, { d: NZ / 2 });
 const tMap = tex(512, 512, 'rgba8unorm', TU.TEXTURE_BINDING | TU.COPY_DST);
+// jellyfish shadows, redrawn every frame looking down the sun's rays: 384 m across, so 37.5 cm to a texel
+const tJelly = tex(1024, 1024, 'rg8unorm', TU.RENDER_ATTACHMENT | TU.TEXTURE_BINDING);
 
 const UB = new Float32Array(68), UBS = new Float32Array(68);
 const ubo = device.createBuffer({ size: 272, usage: BU.UNIFORM | BU.COPY_DST }), uboS = device.createBuffer({ size: 272, usage: BU.UNIFORM | BU.COPY_DST });
@@ -58,11 +60,11 @@ const bgl0 = device.createBindGroupLayout({ entries: [
   { binding: 1, visibility: VF, sampler: {} }, { binding: 2, visibility: VF, sampler: {} }, { binding: 3, visibility: VF, sampler: { type: 'comparison' } },
   { binding: 4, visibility: VF, texture: { sampleType: 'depth' } },
   { binding: 5, visibility: VF, texture: {} }, { binding: 6, visibility: VF, texture: {} },
-  { binding: 7, visibility: VF, texture: { viewDimension: '3d' } }, { binding: 8, visibility: VF, texture: {} }] });
+  { binding: 7, visibility: VF, texture: { viewDimension: '3d' } }, { binding: 8, visibility: VF, texture: {} }, { binding: 9, visibility: VF, texture: {} }] });
 const mkBG0 = (u, sh) => device.createBindGroup({ layout: bgl0, entries: [
   { binding: 0, resource: { buffer: u } }, { binding: 1, resource: sRep }, { binding: 2, resource: sClamp }, { binding: 3, resource: sCmp },
   { binding: 4, resource: sh.createView() }, { binding: 5, resource: tWater.createView() }, { binding: 6, resource: tDetail.createView() },
-  { binding: 7, resource: tVol.createView() }, { binding: 8, resource: tMap.createView() }] });
+  { binding: 7, resource: tVol.createView() }, { binding: 8, resource: tMap.createView() }, { binding: 9, resource: tJelly.createView() }] });
 const bg0 = mkBG0(ubo, tShadow), bg0s = mkBG0(uboS, tDummy);
 const pl0 = device.createPipelineLayout({ bindGroupLayouts: [bgl0] });
 
@@ -111,6 +113,13 @@ const pSurf = scenePipe(mSurf, 'vs', 'fs', [], { strip: true }), pBack = scenePi
 const OVER = { color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } };
 const pBub = scenePipe(mSpr, 'vsBub', 'fsBub', [ibBub], { strip: true, blend: OVER });
 const pJelly = scenePipe(mAnim, 'vsJelly', 'fsJelly', [vbSolid, ibAnim], { blend: OVER });
+// Their shadows: one soft disc each into tJelly, keeping the darkest disc and the highest bell where discs overlap.
+// The pipeline reads only the per-frame values (its own small bind group), since tJelly cannot be read while drawn to.
+const MAXB = { operation: 'max', srcFactor: 'one', dstFactor: 'one' };
+const pJSh = device.createRenderPipeline({ layout: 'auto', vertex: { module: mAnim, entryPoint: 'vsJSh', buffers: [ibAnim] },
+  fragment: { module: mAnim, entryPoint: 'fsJSh', targets: [{ format: 'rg8unorm', blend: { color: MAXB, alpha: MAXB } }] }, primitive: { topology: 'triangle-strip' } });
+const bgJSh = device.createBindGroup({ layout: pJSh.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: ubo } }] });
+const passJSh = { colorAttachments: [colorAtt(tJelly.createView(), true)] };
 const ADD = { color: { srcFactor: 'one', dstFactor: 'one' }, alpha: { srcFactor: 'one', dstFactor: 'one' } };
 const pSnow = scenePipe(mSpr, 'vsSnow', 'fsSnow', [ibSnow], { strip: true, blend: ADD });
 const pGl = scenePipe(mLeaf, 'vsGl', 'fsGl', [ibBub], { strip: true, blend: ADD, constants: { ROWS: 7 } });
@@ -244,6 +253,9 @@ const CX = 0, CY = 1, CZ = 2, YAW = 3, PIT = 4, FX = 5, FY = 6, FZ = 7, RX = 8, 
 // Night dive: NIGHT runs 0 (day) .. 1 (night) and creeps toward NGOAL over about six seconds; STIR is how stirred up the
 // water round the viewer is (0..1): it rises with swimming speed and settles over a couple of seconds.
 const NIGHT = 25, NGOAL = 26, STIR = 27;
+// CALM is how settled the viewer has been (0..1): about five seconds of keeping still or drifting under 1.2 m/s fill it,
+// swimming off empties it in a third of a second. The cuttlefish come over to look by it (fpos() in the fish shader).
+const CALM = 28;
 // moonlight as a fraction of sunlight, per colour, as natural logarithms: red .013, green .03, blue .066
 const MOONR = -4.343, MOONG = -3.507, MOONB = -2.718;
 if (/[?&]night=1/.test(location.search)) F[NIGHT] = F[NGOAL] = 1;
@@ -470,7 +482,7 @@ function render() {
   m[56] = EXPO * (0.6 + 0.4 * ek) * (1 + 1.2 * nt); m[57] = RAYS; m[58] = det; m[59] = nt;
   m[60] = F[VX]; m[61] = F[VY]; m[62] = F[VZ]; m[63] = F[STIR];
   // sky light fades by equal ratios, not equal amounts, so dusk looks half way and not like day
-  m[64] = exp(MOONR * nt); m[65] = exp(MOONG * nt); m[66] = exp(MOONB * nt);
+  m[64] = exp(MOONR * nt); m[65] = exp(MOONG * nt); m[66] = exp(MOONB * nt); m[67] = F[CALM] * F[CALM] * (3 - 2 * F[CALM]);
   Q.writeBuffer(ubo, 0, UB);
   WT[0] = F[TIME]; Q.writeBuffer(uboW, 0, WT);
 
@@ -483,6 +495,8 @@ function render() {
   // animated water texture + mips
   let r = e.beginRenderPass(waterPass[0]); r.setPipeline(pWater); r.setBindGroup(0, bgWater); r.draw(3); r.end();
   for (let i = 1; i < 5; i++) { r = e.beginRenderPass(waterPass[i]); r.setPipeline(pMip16); r.setBindGroup(0, waterBG[i - 1]); r.draw(3); r.end(); }
+  // jellyfish shadows
+  if (nJelly) { r = e.beginRenderPass(passJSh); r.setPipeline(pJSh); r.setBindGroup(0, bgJSh); r.setVertexBuffer(0, ibJelly); r.draw(4, nJelly); r.end(); }
   // scene
   r = e.beginRenderPass(passScene);
   r.setBindGroup(0, bg0);
@@ -592,7 +606,8 @@ function frame(now) {
   F[TIME] += dt;
   {
     const dn = F[NGOAL] - F[NIGHT], st = dt / 6; F[NIGHT] += dn > st ? st : dn < -st ? -st : dn;
-    let want = (sqrt(F[VX] * F[VX] + F[VY] * F[VY] + F[VZ] * F[VZ]) - 1.5) / 6; want = want < 0 ? 0 : want > 1 ? 1 : want;
+    const spd = sqrt(F[VX] * F[VX] + F[VY] * F[VY] + F[VZ] * F[VZ]); let want = (spd - 1.5) / 6; want = want < 0 ? 0 : want > 1 ? 1 : want;
+    const cl = F[CALM] + (spd < 1.2 ? dt / 5 : spd > 2.5 ? -dt * 3 : -dt * 0.4); F[CALM] = cl < 0 ? 0 : cl > 1 ? 1 : cl;
     F[STIR] += (want - F[STIR]) * (1 - exp(-dt * (want > F[STIR] ? 4 : 0.6)));
   }
   {
@@ -628,6 +643,9 @@ function frame(now) {
 const bLight = $('n').querySelectorAll('button');
 const night = (on) => { F[NGOAL] = on ? 1 : 0; bLight[0].className = on ? '' : 'on'; bLight[1].className = on ? 'on' : ''; };
 bLight[0].onclick = () => night(false); bLight[1].onclick = () => night(true); night(F[NGOAL]);
+// A hint of the main keys shows one second after the first dive and fades four seconds later. ? shows the whole list
+// of keys (copied from the menu) until it is pressed again or the menu opens.
+const hint = $('t'), keyList = $('y'); keyList.innerHTML = $('k').innerHTML; let hinted = false;
 const key = (e, v) => {
   switch (e.code) {
     case 'KeyW': kf = v; break; case 'KeyS': kb = v; break; case 'KeyA': kl = v; break; case 'KeyD': kr = v; break;
@@ -637,7 +655,8 @@ const key = (e, v) => {
       else if (e.code === 'KeyM') mute();
       else if (e.code === 'KeyN') night(!F[NGOAL]);
       else if (e.code === 'Escape') ui(true);
-      else if (e.code >= 'Digit1' && e.code <= 'Digit6') lookAt(...POSES[e.code.charCodeAt(5) - 49]);
+      else if (e.code === 'Slash') { keyList.className = keyList.className ? '' : 'on'; hint.className = ''; }
+      else if (e.code >= 'Digit1' && e.code <= 'Digit6') { lookAt(...POSES[e.code.charCodeAt(5) - 49]); F[CALM] = 0; }
     }
   }
 };
@@ -670,10 +689,11 @@ const ui = (m) => {
   if (dead) return;
   menu = m; body.className = m ? 'm' : document.pointerLockElement ? 'g p' : 'g';
   // focus the dive button so Enter works (delayed: it can't take focus while still hidden)
-  if (m) { release(); setTimeout(() => menu && bDive.focus(), 100); } else document.activeElement.blur();
+  if (m) { hint.className = keyList.className = ''; release(); setTimeout(() => menu && bDive.focus(), 100); } else document.activeElement.blur();
 };
 const go = () => {
   sound(); ui(false); bDive.textContent = 'Resume';
+  if (!hinted) { hinted = true; setTimeout(() => { if (!menu) hint.className = 'on'; }, 1000); setTimeout(() => { hint.className = ''; }, 5000); }
   // phones: go fullscreen and ask for landscape; where that is refused the CSS rotation still applies
   if (mob) document.documentElement.requestFullscreen?.()?.then(() => screen.orientation.lock('landscape')).catch(() => 0);
   if (!mob) capture();

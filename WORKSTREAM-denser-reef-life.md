@@ -229,3 +229,19 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
   `test-probe-steps/20261118_1615-golden-hunters/`. Not seen by the owner or a critic.
 - Next, in order: jellyfish that cast shadows; then the owner's backlog (caustic pattern, curious cuttlefish, waves).
   Candidates noticed on the way: a less cartoonish eye for the larger fish; the white-tipped anemone at viewpoint 1.
+- 2026-11-18, about 16:20: the owner on the night dive: "I absolutely love the night mode from the first render and
+  from the live version", and later "I think Night Mode might even be my preferred". Pushed: `main` and the branch are
+  at `6f7d528` (cuttlefish, jellyfish, night dive, hunters all live).
+- 2026-11-18, about 16:40, asked for by the owner ("Jellyfish shadows, then curious cuttlefish please", and a hint of
+  the keys after diving in). Report: `test-probe-steps/20261118_1640-jellyfish-shadows-curious-cuttlefish-key-hint/`.
+  - Jellyfish shadows: one soft disc per jellyfish drawn every frame into a texture looking down the sun's rays; rock,
+    coral and leaves look it up. Proven by subtracting pictures with and without; barely visible in stills, because
+    the shadows blend into the sun dapples. Not seen in motion.
+  - Curious but cautious cuttlefish: keep still about five seconds and it glides over, faces you and displays; swim
+    off and it goes home; swim fast nearby and it backs away and blanches.
+  - Key hint: `?` Keys, `N` Day / night, `W A S D` Swim, one second after the first dive, for four seconds; `?` shows
+    the whole list.
+  - Benchmark: no cost that can be told from the noise (9.49 and 11.14 ms before, 9.57 and 9.73 ms after).
+- Open question for the owner: since night may be the preferred look, should the page start at night?
+- Next: the owner's backlog (caustic pattern, waves). Candidates: a less cartoonish eye for the larger fish; the
+  white-tipped anemone at viewpoint 1; README size figure.

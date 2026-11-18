@@ -1,0 +1,11 @@
+[
+  { "why": "cuttlefish bullet",
+    "find": "- **Cuttlefish** hovering over the reef on a rippling skirt fin: dark bands pass down their skin, and when you come close they turn to watch you and flush into zebra stripes",
+    "replace": "- **Cuttlefish** hovering over the reef on a rippling skirt fin: dark bands pass down their skin. They are curious but cautious: keep still for a few seconds and one glides over to look at you, face on and flushed into zebra stripes; swim off fast and it backs away and turns pale" },
+  { "why": "jellyfish bullet",
+    "find": "that pulse and trail long tentacles, and drift aside as you swim through",
+    "replace": "that pulse and trail long tentacles, drift aside as you swim through, and cast soft moving shadows on the kelp and reef below" },
+  { "why": "controls row",
+    "find": "| Sound on / off | `M` (sound starts when you dive in) |\n",
+    "replace": "| Sound on / off | `M` (sound starts when you dive in) |\n| Show the keys | `?` (a short hint of the main keys also shows for a few seconds after you dive in) |\n" }
+]

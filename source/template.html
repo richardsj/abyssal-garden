@@ -91,11 +91,11 @@ svg { width: 1.5em; height: 1.5em; fill: currentColor; }
 #q .on, #n .on { background: linear-gradient(#9ff6ff, #19c3d6); box-shadow: inset 0 -.2em #0003; color: #03222d; pointer-events: none; }
 
 /* list of controls: two groups, key caps right-aligned against their labels */
-#k { display: flex; justify-content: center; gap: 2em; text-align: left; }
-#k p { display: grid; grid-template-columns: auto auto; align-content: start; align-items: center; gap: .55em .9em; }
-#k p + p { padding-left: 2em; border-left: 2px solid #7ff3ff40; }
-#k i { display: flex; justify-self: end; align-items: center; gap: .25em; font-style: normal; }
-#k b {
+#k, #y { display: flex; justify-content: center; gap: 2em; text-align: left; }
+#k p, #y p { display: grid; grid-template-columns: auto auto; align-content: start; align-items: center; gap: .55em .9em; margin: 0; }
+#k p + p, #y p + p { padding-left: 2em; border-left: 2px solid #7ff3ff40; }
+#k i, #y i, #t i { display: flex; justify-self: end; align-items: center; gap: .25em; font-style: normal; }
+#k b, #y b, #t b {
   min-width: 1.1em; padding: .2em .5em; border-radius: .35em; background: #e8fbff;
   box-shadow: inset 0 -.15em #0004; color: #03222d; text-align: center;
 }
@@ -105,6 +105,20 @@ svg { width: 1.5em; height: 1.5em; fill: currentColor; }
 }
 @media (pointer: coarse) {
   #h { display: block; }
+}
+
+/* in the scene: a hint of the main keys (shown for four seconds after the first dive) and the whole list (the ? key),
+   both in a see-through rounded box low in the middle; they fade in and out */
+#t, #y {
+  position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); margin: 0; padding: 1em 1.6em;
+  border-radius: .9em; background: #03131c99; box-shadow: 0 .3em 1.5em #0006; font-size: .8em; letter-spacing: .12em;
+  text-transform: uppercase; white-space: nowrap; opacity: 0; transition: opacity .7s; pointer-events: none;
+}
+#t { display: flex; align-items: center; gap: .7em; }
+#t i + i, #t i ~ i { margin-left: 1.3em; }
+#t.on, #y.on { opacity: 1; }
+@media (pointer: coarse) {
+  #t, #y { display: none; }
 }
 
 /* in the scene: a small menu button (hidden while the mouse is captured, Esc does the same) and the stats line */
@@ -142,6 +156,7 @@ svg { width: 1.5em; height: 1.5em; fill: currentColor; }
           <i><b>N</b></i>Night
           <i><b>M</b></i>Mute
           <i><b>H</b></i>Stats
+          <i><b>?</b></i>These keys
         </p>
       </div>
       <p id=h>Hold to swim forward · slide to steer · second finger to go faster</p>
@@ -154,6 +169,8 @@ svg { width: 1.5em; height: 1.5em; fill: currentColor; }
 </div>
 <button id=o aria-label=Menu>≡</button>
 <pre id=i></pre>
+<p id=t><i><b>?</b></i>Keys<i><b>N</b></i>Day / night<i><b>W</b><b>A</b><b>S</b><b>D</b></i>Swim</p>
+<div id=y></div>
 <script>
 /*SCRIPT*/
 </script>

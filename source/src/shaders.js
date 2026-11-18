@@ -208,6 +208,8 @@ const SUNC = vec3f(1.66, 1.6, 1.56);
 // the dark-adapted eye sees more strongly. The exposure also rises at night (main.js), so on screen the glow is about
 // 2.2 times stronger again.
 fn lite() -> vec3f { return g.lit.xyz; }
+// g.lit.w = how settled the viewer has been (0..1): it climbs over about five seconds of keeping still or drifting
+// slowly and falls at once on swimming off. The cuttlefish come closer by it.
 fn glo() -> f32 { return 1. + 1.5 * g.mis.w; }
 const TAU = 6.2831853;
 const LOW = ${LV > 1};
@@ -267,6 +269,21 @@ fn caus2(p: vec3f, d: f32) -> f32 {
   let c = min(pow(textureSample(tW, sR, q / 4.1).r, 1.4) * 2.6 * (.45 + textureSample(tW, sR, q.yx / 6.9 + .37).r * 1.3), 2.6);
   return mix(c, .33, ss(35., 100., d));
 }
+// Jellyfish shadows (2026-11-18). The baked shadow map knows nothing that moves, so every frame one soft disc per
+// jellyfish is drawn into tJ as seen looking down the sun's rays (vsJSh): r = the share of sunlight the bell takes,
+// g = its height, as (y + 64) / 64. Only what is below a bell is shaded, and the further below, the wider the lookup,
+// so the shadow softens with distance. jsh1() is the one-lookup version for the leaves.
+@group(0) @binding(9) var tJ: texture_2d<f32>;
+fn jsh(p: vec3f) -> f32 {
+  let q = cuv(p) / 384. + .5;
+  let c = textureSampleLevel(tJ, sC, q, 0.);
+  let dy = c.g * 64. - 64. - p.y;
+  let e = clamp(dy * .02, 0., .9) / 384.;
+  let a = (c.r * 2. + textureSampleLevel(tJ, sC, q + vec2f(e, 0.), 0.).r + textureSampleLevel(tJ, sC, q - vec2f(e, 0.), 0.).r
+    + textureSampleLevel(tJ, sC, q + vec2f(0., e), 0.).r + textureSampleLevel(tJ, sC, q - vec2f(0., e), 0.).r) / 6.;
+  return 1. - a * ss(.3, 1.5, dy);
+}
+fn jsh1(p: vec3f) -> f32 { let c = textureSampleLevel(tJ, sC, cuv(p) / 384. + .5, 0.); return 1. - c.r * ss(.3, 1.5, c.g * 64. - 64. - p.y); }
 fn sunE(y: f32, z: f32) -> vec3f { return SUNC * lite() * exp(kd(z) * (min(y, 0.) / g.sun.y)) * (.5 + .5 * sat(-y / 30.)); }
 fn vol(p: vec3f) -> vec4f { return textureSampleLevel(tV, sC, (p - vec3f(-192., -56., -192.)) / vec3f(384., 60., 384.), 0.); }
 fn amb(p: vec3f, n: vec3f, sky: f32, z: f32) -> vec3f {
@@ -404,7 +421,7 @@ fn tri(p: vec3f, n: vec3f, s: f32) -> TP {
   let v1 = vol(i.wp + n0 * 1.5); let v2 = vol(i.wp + n0 * 4.5);
   let ao = (sat((v1.r - .5) * 8.) * .55 + sat((v2.r - .5) * 2.7) * .45) * vao * ss(.12, .6, hgt);
   let z = zone(i.wp);
-  let E = sunE(i.wp.y, z) * shadow9(i.wp + n0 * .35);
+  let E = sunE(i.wp.y, z) * shadow9(i.wp + n0 * .35) * jsh(i.wp);
   let ndl = sat(dot(N, L));
   let am = (amb(i.wp, N, v1.g, z) + side(i.wp, N, sat((v2.r - .5) * 2.7), z)) * ao;
   let dl = E * ndl * (.10 + mix(vec3f(.33), ca, ss(.1, .45, dot(n0, L))) * 2.5);
@@ -520,7 +537,7 @@ struct GO { @builtin(position) cp: vec4f, @location(0) uv: vec2f, @location(1) @
   let z = zone(i.wp);
   let lt = textureSample(tD, sR, vec2f(i.uv.x * .13 + i.sd.x * 3.7, i.uv.y * .8 + i.sd.y * 5.3));
   let vv = vol(i.wp + vec3f(0., .8, 0.));
-  let E = sunE(i.wp.y, z) * shadow1(i.wp + L * .3);
+  let E = sunE(i.wp.y, z) * shadow1(i.wp + L * .3) * jsh1(i.wp);
   let ndl = dot(n, L);
   var alb = i.col * (.72 + .28 * ss(0., .25, abs(i.uv.x))) * mix(.5, 1.12, i.uv.y) * (1. - .45 * ss(30., 8., dist) * ss(.6, 1., sin(i.uv.y * 40. - abs(i.uv.x) * 7. + i.sd.x * 40.))) * (.58 + .42 * ss(0., .13, abs(i.uv.x))) * (.5 + 1.0 * lt.b) * (.65 + .7 * lt.a);
   let ndv = sat(dot(n, V));
@@ -667,9 +684,14 @@ fn fpos(a: vec4f, b: vec4f, c: vec4f, t: f32) -> vec3f {
     return hunter(a, b.w, c.z, t - c.w * .3) + (h - .5) * vec3f(5., 3., 5.) * step(.01, c.w);
   }
   if (c.y > 4.5) { // cuttlefish: hovers over its spot, drifting a little, and eases back from the viewer (mostly sideways)
-    let p = a.xyz + vec3f(sin(t * .11 + s * 31.) * R, sin(t * .23 + s * 17.) * .2, cos(t * .09 + s * 23.) * R);
+    var p = a.xyz + vec3f(sin(t * .11 + s * 31.) * R, sin(t * .23 + s * 17.) * .2, cos(t * .09 + s * 23.) * R);
+    // Curious but cautious (2026-11-18). While a viewer within about 14 m keeps still (g.lit.w climbs over five
+    // seconds) it glides most of the way over, stopping about 3 m off and rising toward mask height. The moment the
+    // viewer swims off, g.lit.w collapses and it slips back home; a fast swimmer nearby (g.vel.w) sends it further.
+    let tc = (g.cam.xyz - p) * vec3f(1., .6, 1.); let lc = length(tc);
+    p += tc / max(lc, .01) * (g.lit.w * ss(14., 7., lc) * .8 * max(lc - 3., 0.));
     let dv = (p - g.cam.xyz) * vec3f(1., .35, 1.); let lv = length(dv);
-    return p + dv / max(lv, .01) * (1.3 * exp(-lv * lv / 10.));
+    return p + dv / max(lv, .01) * (1.3 * exp(-lv * lv / 10.) + g.vel.w * 2.2 * ss(10., 3., lv));
   }
   // loner: wanders a loop near home, nearly stopping now and then
   let u0 = t * b.y + b.w * 6.3; let u = u0 - .27 * sin(u0 * 3.);
@@ -691,7 +713,8 @@ fn fpos(a: vec4f, b: vec4f, c: vec4f, t: f32) -> vec3f {
   // side or the other by its seed), so its flank and the display on it stay in view, while fpos() eases it backward.
   if (bh > 4.5) {
     let a0 = i.b.w * 6.3 + sin(t * .13 + s * 9.) * 1.3; let tc = g.cam.xyz - P; let q = normalize(tc.xz + vec2f(1e-3, 0.));
-    let an = select(-.9, .9, fract(s * 7.) > .5); let ca = cos(an); let sa = sin(an);
+    // when it has come over to look, it faces the viewer more squarely (about 20 degrees off)
+    let an = select(-.9, .9, fract(s * 7.) > .5) * (1. - .6 * g.lit.w); let ca = cos(an); let sa = sin(an);
     v = mix(vec3f(cos(a0), 0., sin(a0)), vec3f(q.x * ca - q.y * sa, 0., q.x * sa + q.y * ca), ss(7., 3., length(tc)));
   }
   // fish swim close to level: the climb or dive is at most a third of the forward speed
@@ -838,6 +861,7 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
       let dsp = nr * (.6 + .4 * sin(tt * 1.3 + s * 30.));
       alb = mix(calm, show, dsp) * mix(1.1, .7, back);
       alb = mix(alb, vec3f(.85, .8, .7), ss(-.02, -.07, y) * .5); // pale underneath
+      alb = mix(alb, vec3f(.82, .78, .7), g.vel.w * nr * .55); // startled by a fast swimmer close by, it blanches
       // a faint light that travels with the bands, and enough of its own colour to keep its warmth in blue water
       emi = vec3f(.15, .9, .8) * wave * .05 + show * zeb * dsp * .06 + alb * .1;
       // the fin and the arm tips run from the body's colour to an electric blue-green edge
@@ -920,9 +944,10 @@ struct JO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
 // How much of its own light a jellyfish gives off. A fifth in daylight (2026-11-18): at full strength every one was
 // equally bright in sun and in shade, which made them look laid over the picture. The night dive should raise this.
 const JGLOW = .2; // the jellyfish's own light by day; by night it is 1
-@vertex fn vsJelly(i: VI) -> JO {
-  var o: JO;
-  let t = g.cam.w; let R = i.a.w; let s = i.b.x; let sz = i.b.y; let ph = i.b.z;
+// Where a jellyfish is (xyz) and how far its bell is squeezed (w, 0 open .. 1 shut). Shared by the jellyfish itself
+// (vsJelly) and by the shadow it casts (vsJSh), so the two cannot disagree. a, b = its instance data.
+fn jctr(a: vec4f, b: vec4f) -> vec4f {
+  let t = g.cam.w; let R = a.w; let sz = b.y; let ph = b.z;
   // the pulse: slower for a bigger bell; a quick squeeze and a slow opening
   let pp = t * (2.6 / (.5 + sz)) + ph * TAU; let sq = pow(.5 + .5 * sin(pp), 3.);
   // Each squeeze throws it upward by a little over half a bell radius, quickly (the first quarter of the pulse); it
@@ -930,9 +955,29 @@ const JGLOW = .2; // the jellyfish's own light by day; by night it is 1
   // was "about right, maybe very slightly not enough".)
   let th = fract((pp - .3) / TAU); let lift = .55 * sz * (ss(0., .25, th) - ss(.25, 1., th));
   // drifting round its home, rising and sinking over minutes, with the thrust of each pulse on top
-  var P = i.a.xyz + vec3f(R * cos(t * .03 + ph * 5.), 1.5 * sin(t * .05 + ph * 9.) + lift, R * sin(t * .027 + ph * 7.));
+  var P = a.xyz + vec3f(R * cos(t * .03 + ph * 5.), 1.5 * sin(t * .05 + ph * 9.) + lift, R * sin(t * .027 + ph * 7.));
   // the viewer eases it aside, and it never sits on the lens
   { let dv = P - g.cam.xyz; let lv = length(dv); let rv = 2. + sz; P += dv / max(lv, .01) * (1.6 * exp(-lv * lv / (rv * rv)) + max(sz + .9 - lv, 0.)); }
+  return vec4f(P, sq);
+}
+// The shadow of each jellyfish: a square drawn into tJ (384 m of world across, looking down the sun's rays), wide
+// enough for the soft edge. The bell's shadow shrinks as it squeezes. Blended by "max", so overlapping bells do not
+// add up and the height kept is that of the highest bell.
+struct JS { @builtin(position) cp: vec4f, @location(0) uv: vec2f, @location(1) @interpolate(flat) h: f32 };
+@vertex fn vsJSh(@builtin(vertex_index) vi: u32, @location(2) a: vec4f, @location(3) b: vec4f) -> JS {
+  var o: JS; let c = jctr(a, b); let P = c.xyz;
+  let rad = b.y * (1. - .2 * c.w); let half = rad * 2.2 + .5;
+  let k = vec2f(f32(vi & 1u), f32(vi >> 1u)) * 2. - 1.;
+  let q = P.xz - g.sun.xz * (P.y / g.sun.y) + k * half;
+  o.cp = vec4f(q.x / 192., -q.y / 192., .5, 1.); o.uv = k * half / rad; o.h = (P.y + 64.) / 64.;
+  return o;
+}
+@fragment fn fsJSh(i: JS) -> @location(0) vec4f { return vec4f(.72 * ss(1.3, .4, length(i.uv)), i.h, 0., 0.); }
+@vertex fn vsJelly(i: VI) -> JO {
+  var o: JO;
+  let t = g.cam.w; let s = i.b.x; let sz = i.b.y; let ph = i.b.z;
+  let pp = t * (2.6 / (.5 + sz)) + ph * TAU; // the pulse, as in jctr(): the hanging parts follow it late
+  let ctr = jctr(i.a, i.b); let P = ctr.xyz; let sq = ctr.w;
   // beyond 110 m the water hides it: put it outside the view so nothing is drawn for it
   if (distance(P, g.cam.xyz) > 110.) { o.cp = vec4f(2., 2., 2., 1.); return o; }
   // leaning this way and that, each in its own time, so a swarm is not a row of identical upright bells

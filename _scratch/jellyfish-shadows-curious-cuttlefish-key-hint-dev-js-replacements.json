@@ -1,0 +1,5 @@
+[
+  { "why": "dev.curious", "find": "    bench() { pin(); dev.result = null; startFlight(true); },", "replace": "    // curious(1) holds the viewer \"settled\" value at 1 while the camera is pinned (the cuttlefish come over); -1 = leave it\n    curious(level) { fixCalm = level; },\n    bench() { pin(); dev.result = null; startFlight(true); }," },
+  { "why": "hold calm", "find": "if (fixStir >= 0) F[STIR] = fixStir; }", "replace": "if (fixStir >= 0) F[STIR] = fixStir; if (fixCalm >= 0) F[CALM] = fixCalm; }" },
+  { "why": "declare", "find": "  let pinned = false, fixT = -1, fixStir = -1;", "replace": "  let pinned = false, fixT = -1, fixStir = -1, fixCalm = -1;" }
+]

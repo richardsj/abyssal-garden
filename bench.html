@@ -91,11 +91,11 @@ svg { width: 1.5em; height: 1.5em; fill: currentColor; }
 #q .on, #n .on { background: linear-gradient(#9ff6ff, #19c3d6); box-shadow: inset 0 -.2em #0003; color: #03222d; pointer-events: none; }
 
 /* list of controls: two groups, key caps right-aligned against their labels */
-#k { display: flex; justify-content: center; gap: 2em; text-align: left; }
-#k p { display: grid; grid-template-columns: auto auto; align-content: start; align-items: center; gap: .55em .9em; }
-#k p + p { padding-left: 2em; border-left: 2px solid #7ff3ff40; }
-#k i { display: flex; justify-self: end; align-items: center; gap: .25em; font-style: normal; }
-#k b {
+#k, #y { display: flex; justify-content: center; gap: 2em; text-align: left; }
+#k p, #y p { display: grid; grid-template-columns: auto auto; align-content: start; align-items: center; gap: .55em .9em; margin: 0; }
+#k p + p, #y p + p { padding-left: 2em; border-left: 2px solid #7ff3ff40; }
+#k i, #y i, #t i { display: flex; justify-self: end; align-items: center; gap: .25em; font-style: normal; }
+#k b, #y b, #t b {
   min-width: 1.1em; padding: .2em .5em; border-radius: .35em; background: #e8fbff;
   box-shadow: inset 0 -.15em #0004; color: #03222d; text-align: center;
 }
@@ -105,6 +105,20 @@ svg { width: 1.5em; height: 1.5em; fill: currentColor; }
 }
 @media (pointer: coarse) {
   #h { display: block; }
+}
+
+/* in the scene: a hint of the main keys (shown for four seconds after the first dive) and the whole list (the ? key),
+   both in a see-through rounded box low in the middle; they fade in and out */
+#t, #y {
+  position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); margin: 0; padding: 1em 1.6em;
+  border-radius: .9em; background: #03131c99; box-shadow: 0 .3em 1.5em #0006; font-size: .8em; letter-spacing: .12em;
+  text-transform: uppercase; white-space: nowrap; opacity: 0; transition: opacity .7s; pointer-events: none;
+}
+#t { display: flex; align-items: center; gap: .7em; }
+#t i + i, #t i ~ i { margin-left: 1.3em; }
+#t.on, #y.on { opacity: 1; }
+@media (pointer: coarse) {
+  #t, #y { display: none; }
 }
 
 /* in the scene: a small menu button (hidden while the mouse is captured, Esc does the same) and the stats line */
@@ -142,6 +156,7 @@ svg { width: 1.5em; height: 1.5em; fill: currentColor; }
           <i><b>N</b></i>Night
           <i><b>M</b></i>Mute
           <i><b>H</b></i>Stats
+          <i><b>?</b></i>These keys
         </p>
       </div>
       <p id=h>Hold to swim forward · slide to steer · second finger to go faster</p>
@@ -154,6 +169,8 @@ svg { width: 1.5em; height: 1.5em; fill: currentColor; }
 </div>
 <button id=o aria-label=Menu>≡</button>
 <pre id=i></pre>
+<p id=t><i><b>?</b></i>Keys<i><b>N</b></i>Day / night<i><b>W</b><b>A</b><b>S</b><b>D</b></i>Swim</p>
+<div id=y></div>
 <script>
 (async()=>{// ============================================================================
 // quality level, chosen before anything is built
@@ -597,6 +614,8 @@ const SUNC = vec3f(1.66, 1.6, 1.56);
 // the dark-adapted eye sees more strongly. The exposure also rises at night (main.js), so on screen the glow is about
 // 2.2 times stronger again.
 fn lite() -> vec3f { return g.lit.xyz; }
+// g.lit.w = how settled the viewer has been (0..1): it climbs over about five seconds of keeping still or drifting
+// slowly and falls at once on swimming off. The cuttlefish come closer by it.
 fn glo() -> f32 { return 1. + 1.5 * g.mis.w; }
 const TAU = 6.2831853;
 const LOW = ${LV > 1};
@@ -656,6 +675,21 @@ fn caus2(p: vec3f, d: f32) -> f32 {
   let c = min(pow(textureSample(tW, sR, q / 4.1).r, 1.4) * 2.6 * (.45 + textureSample(tW, sR, q.yx / 6.9 + .37).r * 1.3), 2.6);
   return mix(c, .33, ss(35., 100., d));
 }
+// Jellyfish shadows (2026-11-18). The baked shadow map knows nothing that moves, so every frame one soft disc per
+// jellyfish is drawn into tJ as seen looking down the sun's rays (vsJSh): r = the share of sunlight the bell takes,
+// g = its height, as (y + 64) / 64. Only what is below a bell is shaded, and the further below, the wider the lookup,
+// so the shadow softens with distance. jsh1() is the one-lookup version for the leaves.
+@group(0) @binding(9) var tJ: texture_2d<f32>;
+fn jsh(p: vec3f) -> f32 {
+  let q = cuv(p) / 384. + .5;
+  let c = textureSampleLevel(tJ, sC, q, 0.);
+  let dy = c.g * 64. - 64. - p.y;
+  let e = clamp(dy * .02, 0., .9) / 384.;
+  let a = (c.r * 2. + textureSampleLevel(tJ, sC, q + vec2f(e, 0.), 0.).r + textureSampleLevel(tJ, sC, q - vec2f(e, 0.), 0.).r
+    + textureSampleLevel(tJ, sC, q + vec2f(0., e), 0.).r + textureSampleLevel(tJ, sC, q - vec2f(0., e), 0.).r) / 6.;
+  return 1. - a * ss(.3, 1.5, dy);
+}
+fn jsh1(p: vec3f) -> f32 { let c = textureSampleLevel(tJ, sC, cuv(p) / 384. + .5, 0.); return 1. - c.r * ss(.3, 1.5, c.g * 64. - 64. - p.y); }
 fn sunE(y: f32, z: f32) -> vec3f { return SUNC * lite() * exp(kd(z) * (min(y, 0.) / g.sun.y)) * (.5 + .5 * sat(-y / 30.)); }
 fn vol(p: vec3f) -> vec4f { return textureSampleLevel(tV, sC, (p - vec3f(-192., -56., -192.)) / vec3f(384., 60., 384.), 0.); }
 fn amb(p: vec3f, n: vec3f, sky: f32, z: f32) -> vec3f {
@@ -793,7 +827,7 @@ fn tri(p: vec3f, n: vec3f, s: f32) -> TP {
   let v1 = vol(i.wp + n0 * 1.5); let v2 = vol(i.wp + n0 * 4.5);
   let ao = (sat((v1.r - .5) * 8.) * .55 + sat((v2.r - .5) * 2.7) * .45) * vao * ss(.12, .6, hgt);
   let z = zone(i.wp);
-  let E = sunE(i.wp.y, z) * shadow9(i.wp + n0 * .35);
+  let E = sunE(i.wp.y, z) * shadow9(i.wp + n0 * .35) * jsh(i.wp);
   let ndl = sat(dot(N, L));
   let am = (amb(i.wp, N, v1.g, z) + side(i.wp, N, sat((v2.r - .5) * 2.7), z)) * ao;
   let dl = E * ndl * (.10 + mix(vec3f(.33), ca, ss(.1, .45, dot(n0, L))) * 2.5);
@@ -909,7 +943,7 @@ struct GO { @builtin(position) cp: vec4f, @location(0) uv: vec2f, @location(1) @
   let z = zone(i.wp);
   let lt = textureSample(tD, sR, vec2f(i.uv.x * .13 + i.sd.x * 3.7, i.uv.y * .8 + i.sd.y * 5.3));
   let vv = vol(i.wp + vec3f(0., .8, 0.));
-  let E = sunE(i.wp.y, z) * shadow1(i.wp + L * .3);
+  let E = sunE(i.wp.y, z) * shadow1(i.wp + L * .3) * jsh1(i.wp);
   let ndl = dot(n, L);
   var alb = i.col * (.72 + .28 * ss(0., .25, abs(i.uv.x))) * mix(.5, 1.12, i.uv.y) * (1. - .45 * ss(30., 8., dist) * ss(.6, 1., sin(i.uv.y * 40. - abs(i.uv.x) * 7. + i.sd.x * 40.))) * (.58 + .42 * ss(0., .13, abs(i.uv.x))) * (.5 + 1.0 * lt.b) * (.65 + .7 * lt.a);
   let ndv = sat(dot(n, V));
@@ -1056,9 +1090,14 @@ fn fpos(a: vec4f, b: vec4f, c: vec4f, t: f32) -> vec3f {
     return hunter(a, b.w, c.z, t - c.w * .3) + (h - .5) * vec3f(5., 3., 5.) * step(.01, c.w);
   }
   if (c.y > 4.5) { // cuttlefish: hovers over its spot, drifting a little, and eases back from the viewer (mostly sideways)
-    let p = a.xyz + vec3f(sin(t * .11 + s * 31.) * R, sin(t * .23 + s * 17.) * .2, cos(t * .09 + s * 23.) * R);
+    var p = a.xyz + vec3f(sin(t * .11 + s * 31.) * R, sin(t * .23 + s * 17.) * .2, cos(t * .09 + s * 23.) * R);
+    // Curious but cautious (2026-11-18). While a viewer within about 14 m keeps still (g.lit.w climbs over five
+    // seconds) it glides most of the way over, stopping about 3 m off and rising toward mask height. The moment the
+    // viewer swims off, g.lit.w collapses and it slips back home; a fast swimmer nearby (g.vel.w) sends it further.
+    let tc = (g.cam.xyz - p) * vec3f(1., .6, 1.); let lc = length(tc);
+    p += tc / max(lc, .01) * (g.lit.w * ss(14., 7., lc) * .8 * max(lc - 3., 0.));
     let dv = (p - g.cam.xyz) * vec3f(1., .35, 1.); let lv = length(dv);
-    return p + dv / max(lv, .01) * (1.3 * exp(-lv * lv / 10.));
+    return p + dv / max(lv, .01) * (1.3 * exp(-lv * lv / 10.) + g.vel.w * 2.2 * ss(10., 3., lv));
   }
   // loner: wanders a loop near home, nearly stopping now and then
   let u0 = t * b.y + b.w * 6.3; let u = u0 - .27 * sin(u0 * 3.);
@@ -1080,7 +1119,8 @@ fn fpos(a: vec4f, b: vec4f, c: vec4f, t: f32) -> vec3f {
   // side or the other by its seed), so its flank and the display on it stay in view, while fpos() eases it backward.
   if (bh > 4.5) {
     let a0 = i.b.w * 6.3 + sin(t * .13 + s * 9.) * 1.3; let tc = g.cam.xyz - P; let q = normalize(tc.xz + vec2f(1e-3, 0.));
-    let an = select(-.9, .9, fract(s * 7.) > .5); let ca = cos(an); let sa = sin(an);
+    // when it has come over to look, it faces the viewer more squarely (about 20 degrees off)
+    let an = select(-.9, .9, fract(s * 7.) > .5) * (1. - .6 * g.lit.w); let ca = cos(an); let sa = sin(an);
     v = mix(vec3f(cos(a0), 0., sin(a0)), vec3f(q.x * ca - q.y * sa, 0., q.x * sa + q.y * ca), ss(7., 3., length(tc)));
   }
   // fish swim close to level: the climb or dive is at most a third of the forward speed
@@ -1227,6 +1267,7 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
       let dsp = nr * (.6 + .4 * sin(tt * 1.3 + s * 30.));
       alb = mix(calm, show, dsp) * mix(1.1, .7, back);
       alb = mix(alb, vec3f(.85, .8, .7), ss(-.02, -.07, y) * .5); // pale underneath
+      alb = mix(alb, vec3f(.82, .78, .7), g.vel.w * nr * .55); // startled by a fast swimmer close by, it blanches
       // a faint light that travels with the bands, and enough of its own colour to keep its warmth in blue water
       emi = vec3f(.15, .9, .8) * wave * .05 + show * zeb * dsp * .06 + alb * .1;
       // the fin and the arm tips run from the body's colour to an electric blue-green edge
@@ -1309,9 +1350,10 @@ struct JO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
 // How much of its own light a jellyfish gives off. A fifth in daylight (2026-11-18): at full strength every one was
 // equally bright in sun and in shade, which made them look laid over the picture. The night dive should raise this.
 const JGLOW = .2; // the jellyfish's own light by day; by night it is 1
-@vertex fn vsJelly(i: VI) -> JO {
-  var o: JO;
-  let t = g.cam.w; let R = i.a.w; let s = i.b.x; let sz = i.b.y; let ph = i.b.z;
+// Where a jellyfish is (xyz) and how far its bell is squeezed (w, 0 open .. 1 shut). Shared by the jellyfish itself
+// (vsJelly) and by the shadow it casts (vsJSh), so the two cannot disagree. a, b = its instance data.
+fn jctr(a: vec4f, b: vec4f) -> vec4f {
+  let t = g.cam.w; let R = a.w; let sz = b.y; let ph = b.z;
   // the pulse: slower for a bigger bell; a quick squeeze and a slow opening
   let pp = t * (2.6 / (.5 + sz)) + ph * TAU; let sq = pow(.5 + .5 * sin(pp), 3.);
   // Each squeeze throws it upward by a little over half a bell radius, quickly (the first quarter of the pulse); it
@@ -1319,9 +1361,29 @@ const JGLOW = .2; // the jellyfish's own light by day; by night it is 1
   // was "about right, maybe very slightly not enough".)
   let th = fract((pp - .3) / TAU); let lift = .55 * sz * (ss(0., .25, th) - ss(.25, 1., th));
   // drifting round its home, rising and sinking over minutes, with the thrust of each pulse on top
-  var P = i.a.xyz + vec3f(R * cos(t * .03 + ph * 5.), 1.5 * sin(t * .05 + ph * 9.) + lift, R * sin(t * .027 + ph * 7.));
+  var P = a.xyz + vec3f(R * cos(t * .03 + ph * 5.), 1.5 * sin(t * .05 + ph * 9.) + lift, R * sin(t * .027 + ph * 7.));
   // the viewer eases it aside, and it never sits on the lens
   { let dv = P - g.cam.xyz; let lv = length(dv); let rv = 2. + sz; P += dv / max(lv, .01) * (1.6 * exp(-lv * lv / (rv * rv)) + max(sz + .9 - lv, 0.)); }
+  return vec4f(P, sq);
+}
+// The shadow of each jellyfish: a square drawn into tJ (384 m of world across, looking down the sun's rays), wide
+// enough for the soft edge. The bell's shadow shrinks as it squeezes. Blended by "max", so overlapping bells do not
+// add up and the height kept is that of the highest bell.
+struct JS { @builtin(position) cp: vec4f, @location(0) uv: vec2f, @location(1) @interpolate(flat) h: f32 };
+@vertex fn vsJSh(@builtin(vertex_index) vi: u32, @location(2) a: vec4f, @location(3) b: vec4f) -> JS {
+  var o: JS; let c = jctr(a, b); let P = c.xyz;
+  let rad = b.y * (1. - .2 * c.w); let half = rad * 2.2 + .5;
+  let k = vec2f(f32(vi & 1u), f32(vi >> 1u)) * 2. - 1.;
+  let q = P.xz - g.sun.xz * (P.y / g.sun.y) + k * half;
+  o.cp = vec4f(q.x / 192., -q.y / 192., .5, 1.); o.uv = k * half / rad; o.h = (P.y + 64.) / 64.;
+  return o;
+}
+@fragment fn fsJSh(i: JS) -> @location(0) vec4f { return vec4f(.72 * ss(1.3, .4, length(i.uv)), i.h, 0., 0.); }
+@vertex fn vsJelly(i: VI) -> JO {
+  var o: JO;
+  let t = g.cam.w; let s = i.b.x; let sz = i.b.y; let ph = i.b.z;
+  let pp = t * (2.6 / (.5 + sz)) + ph * TAU; // the pulse, as in jctr(): the hanging parts follow it late
+  let ctr = jctr(i.a, i.b); let P = ctr.xyz; let sq = ctr.w;
   // beyond 110 m the water hides it: put it outside the view so nothing is drawn for it
   if (distance(P, g.cam.xyz) > 110.) { o.cp = vec4f(2., 2., 2., 1.); return o; }
   // leaning this way and that, each in its own time, so a swarm is not a row of identical upright bells
@@ -2597,6 +2659,8 @@ const tWater = tex(WATER, WATER, HDR, TU.RENDER_ATTACHMENT | TU.TEXTURE_BINDING,
 const tDetail = tex(1024, 1024, 'rgba8unorm', TU.RENDER_ATTACHMENT | TU.TEXTURE_BINDING, { mips: 11 });
 const tVol = tex(NX / 2, NY / 2, 'rg8unorm', TU.TEXTURE_BINDING | TU.COPY_DST, { d: NZ / 2 });
 const tMap = tex(512, 512, 'rgba8unorm', TU.TEXTURE_BINDING | TU.COPY_DST);
+// jellyfish shadows, redrawn every frame looking down the sun's rays: 384 m across, so 37.5 cm to a texel
+const tJelly = tex(1024, 1024, 'rg8unorm', TU.RENDER_ATTACHMENT | TU.TEXTURE_BINDING);
 
 const UB = new Float32Array(68), UBS = new Float32Array(68);
 const ubo = device.createBuffer({ size: 272, usage: BU.UNIFORM | BU.COPY_DST }), uboS = device.createBuffer({ size: 272, usage: BU.UNIFORM | BU.COPY_DST });
@@ -2608,11 +2672,11 @@ const bgl0 = device.createBindGroupLayout({ entries: [
   { binding: 1, visibility: VF, sampler: {} }, { binding: 2, visibility: VF, sampler: {} }, { binding: 3, visibility: VF, sampler: { type: 'comparison' } },
   { binding: 4, visibility: VF, texture: { sampleType: 'depth' } },
   { binding: 5, visibility: VF, texture: {} }, { binding: 6, visibility: VF, texture: {} },
-  { binding: 7, visibility: VF, texture: { viewDimension: '3d' } }, { binding: 8, visibility: VF, texture: {} }] });
+  { binding: 7, visibility: VF, texture: { viewDimension: '3d' } }, { binding: 8, visibility: VF, texture: {} }, { binding: 9, visibility: VF, texture: {} }] });
 const mkBG0 = (u, sh) => device.createBindGroup({ layout: bgl0, entries: [
   { binding: 0, resource: { buffer: u } }, { binding: 1, resource: sRep }, { binding: 2, resource: sClamp }, { binding: 3, resource: sCmp },
   { binding: 4, resource: sh.createView() }, { binding: 5, resource: tWater.createView() }, { binding: 6, resource: tDetail.createView() },
-  { binding: 7, resource: tVol.createView() }, { binding: 8, resource: tMap.createView() }] });
+  { binding: 7, resource: tVol.createView() }, { binding: 8, resource: tMap.createView() }, { binding: 9, resource: tJelly.createView() }] });
 const bg0 = mkBG0(ubo, tShadow), bg0s = mkBG0(uboS, tDummy);
 const pl0 = device.createPipelineLayout({ bindGroupLayouts: [bgl0] });
 
@@ -2661,6 +2725,13 @@ const pSurf = scenePipe(mSurf, 'vs', 'fs', [], { strip: true }), pBack = scenePi
 const OVER = { color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } };
 const pBub = scenePipe(mSpr, 'vsBub', 'fsBub', [ibBub], { strip: true, blend: OVER });
 const pJelly = scenePipe(mAnim, 'vsJelly', 'fsJelly', [vbSolid, ibAnim], { blend: OVER });
+// Their shadows: one soft disc each into tJelly, keeping the darkest disc and the highest bell where discs overlap.
+// The pipeline reads only the per-frame values (its own small bind group), since tJelly cannot be read while drawn to.
+const MAXB = { operation: 'max', srcFactor: 'one', dstFactor: 'one' };
+const pJSh = device.createRenderPipeline({ layout: 'auto', vertex: { module: mAnim, entryPoint: 'vsJSh', buffers: [ibAnim] },
+  fragment: { module: mAnim, entryPoint: 'fsJSh', targets: [{ format: 'rg8unorm', blend: { color: MAXB, alpha: MAXB } }] }, primitive: { topology: 'triangle-strip' } });
+const bgJSh = device.createBindGroup({ layout: pJSh.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: ubo } }] });
+const passJSh = { colorAttachments: [colorAtt(tJelly.createView(), true)] };
 const ADD = { color: { srcFactor: 'one', dstFactor: 'one' }, alpha: { srcFactor: 'one', dstFactor: 'one' } };
 const pSnow = scenePipe(mSpr, 'vsSnow', 'fsSnow', [ibSnow], { strip: true, blend: ADD });
 const pGl = scenePipe(mLeaf, 'vsGl', 'fsGl', [ibBub], { strip: true, blend: ADD, constants: { ROWS: 7 } });
@@ -2794,6 +2865,9 @@ const CX = 0, CY = 1, CZ = 2, YAW = 3, PIT = 4, FX = 5, FY = 6, FZ = 7, RX = 8, 
 // Night dive: NIGHT runs 0 (day) .. 1 (night) and creeps toward NGOAL over about six seconds; STIR is how stirred up the
 // water round the viewer is (0..1): it rises with swimming speed and settles over a couple of seconds.
 const NIGHT = 25, NGOAL = 26, STIR = 27;
+// CALM is how settled the viewer has been (0..1): about five seconds of keeping still or drifting under 1.2 m/s fill it,
+// swimming off empties it in a third of a second. The cuttlefish come over to look by it (fpos() in the fish shader).
+const CALM = 28;
 // moonlight as a fraction of sunlight, per colour, as natural logarithms: red .013, green .03, blue .066
 const MOONR = -4.343, MOONG = -3.507, MOONB = -2.718;
 if (/[?&]night=1/.test(location.search)) F[NIGHT] = F[NGOAL] = 1;
@@ -3020,7 +3094,7 @@ function render() {
   m[56] = EXPO * (0.6 + 0.4 * ek) * (1 + 1.2 * nt); m[57] = RAYS; m[58] = det; m[59] = nt;
   m[60] = F[VX]; m[61] = F[VY]; m[62] = F[VZ]; m[63] = F[STIR];
   // sky light fades by equal ratios, not equal amounts, so dusk looks half way and not like day
-  m[64] = exp(MOONR * nt); m[65] = exp(MOONG * nt); m[66] = exp(MOONB * nt);
+  m[64] = exp(MOONR * nt); m[65] = exp(MOONG * nt); m[66] = exp(MOONB * nt); m[67] = F[CALM] * F[CALM] * (3 - 2 * F[CALM]);
   Q.writeBuffer(ubo, 0, UB);
   WT[0] = F[TIME]; Q.writeBuffer(uboW, 0, WT);
 
@@ -3033,6 +3107,8 @@ function render() {
   // animated water texture + mips
   let r = e.beginRenderPass(waterPass[0]); r.setPipeline(pWater); r.setBindGroup(0, bgWater); r.draw(3); r.end();
   for (let i = 1; i < 5; i++) { r = e.beginRenderPass(waterPass[i]); r.setPipeline(pMip16); r.setBindGroup(0, waterBG[i - 1]); r.draw(3); r.end(); }
+  // jellyfish shadows
+  if (nJelly) { r = e.beginRenderPass(passJSh); r.setPipeline(pJSh); r.setBindGroup(0, bgJSh); r.setVertexBuffer(0, ibJelly); r.draw(4, nJelly); r.end(); }
   // scene
   r = e.beginRenderPass(passScene);
   r.setBindGroup(0, bg0);
@@ -3142,7 +3218,8 @@ function frame(now) {
   F[TIME] += dt;
   {
     const dn = F[NGOAL] - F[NIGHT], st = dt / 6; F[NIGHT] += dn > st ? st : dn < -st ? -st : dn;
-    let want = (sqrt(F[VX] * F[VX] + F[VY] * F[VY] + F[VZ] * F[VZ]) - 1.5) / 6; want = want < 0 ? 0 : want > 1 ? 1 : want;
+    const spd = sqrt(F[VX] * F[VX] + F[VY] * F[VY] + F[VZ] * F[VZ]); let want = (spd - 1.5) / 6; want = want < 0 ? 0 : want > 1 ? 1 : want;
+    const cl = F[CALM] + (spd < 1.2 ? dt / 5 : spd > 2.5 ? -dt * 3 : -dt * 0.4); F[CALM] = cl < 0 ? 0 : cl > 1 ? 1 : cl;
     F[STIR] += (want - F[STIR]) * (1 - exp(-dt * (want > F[STIR] ? 4 : 0.6)));
   }
   {
@@ -3178,6 +3255,9 @@ function frame(now) {
 const bLight = $('n').querySelectorAll('button');
 const night = (on) => { F[NGOAL] = on ? 1 : 0; bLight[0].className = on ? '' : 'on'; bLight[1].className = on ? 'on' : ''; };
 bLight[0].onclick = () => night(false); bLight[1].onclick = () => night(true); night(F[NGOAL]);
+// A hint of the main keys shows one second after the first dive and fades four seconds later. ? shows the whole list
+// of keys (copied from the menu) until it is pressed again or the menu opens.
+const hint = $('t'), keyList = $('y'); keyList.innerHTML = $('k').innerHTML; let hinted = false;
 const key = (e, v) => {
   switch (e.code) {
     case 'KeyW': kf = v; break; case 'KeyS': kb = v; break; case 'KeyA': kl = v; break; case 'KeyD': kr = v; break;
@@ -3187,7 +3267,8 @@ const key = (e, v) => {
       else if (e.code === 'KeyM') mute();
       else if (e.code === 'KeyN') night(!F[NGOAL]);
       else if (e.code === 'Escape') ui(true);
-      else if (e.code >= 'Digit1' && e.code <= 'Digit6') lookAt(...POSES[e.code.charCodeAt(5) - 49]);
+      else if (e.code === 'Slash') { keyList.className = keyList.className ? '' : 'on'; hint.className = ''; }
+      else if (e.code >= 'Digit1' && e.code <= 'Digit6') { lookAt(...POSES[e.code.charCodeAt(5) - 49]); F[CALM] = 0; }
     }
   }
 };
@@ -3220,10 +3301,11 @@ const ui = (m) => {
   if (dead) return;
   menu = m; body.className = m ? 'm' : document.pointerLockElement ? 'g p' : 'g';
   // focus the dive button so Enter works (delayed: it can't take focus while still hidden)
-  if (m) { release(); setTimeout(() => menu && bDive.focus(), 100); } else document.activeElement.blur();
+  if (m) { hint.className = keyList.className = ''; release(); setTimeout(() => menu && bDive.focus(), 100); } else document.activeElement.blur();
 };
 const go = () => {
   sound(); ui(false); bDive.textContent = 'Resume';
+  if (!hinted) { hinted = true; setTimeout(() => { if (!menu) hint.className = 'on'; }, 1000); setTimeout(() => { hint.className = ''; }, 5000); }
   // phones: go fullscreen and ask for landscape; where that is refused the CSS rotation still applies
   if (mob) document.documentElement.requestFullscreen?.()?.then(() => screen.orientation.lock('landscape')).catch(() => 0);
   if (!mob) capture();
@@ -3341,7 +3423,7 @@ document.addEventListener('visibilitychange', () => { if (AC) document.hidden ? 
   //   ?fly=12.5         still at 12.5 s into the flight (clock held at the same value unless &time= is given)
   //   ?bench=1          run the benchmark flight 3 s after loading
   // Any of them pins the resolution to its maximum (2560x1440 in a window that size) and the draw distance to full.
-  let pinned = false, fixT = -1, fixStir = -1;
+  let pinned = false, fixT = -1, fixStir = -1, fixCalm = -1;
   const pin = () => { pinned = true; hud = false; info.textContent = ''; pix = PIXMAX; det = 1; resize(); ui(false); $('o').style.display = 'none'; };
   const startFlight = (b) => { flying = true; bench = b; fixT = -1; F[FLT] = 0; last = F[LAST]; nFrame = nGpu = 0; if (b) { hud = false; info.textContent = ''; dynT = -Infinity; } };
   const dev = window.dev = {
@@ -3416,6 +3498,8 @@ document.addEventListener('visibilitychange', () => { if (AC) document.hidden ? 
     // night(1) = night at once, night(0) = day, in between = dusk held there. stir (0..1) holds how stirred up the
     // plankton is while the camera is pinned (-1 = leave it to the swimming speed).
     night(level, stir = -1) { night(level > 0.5); F[NIGHT] = F[NGOAL] = level; fixStir = stir; },
+    // curious(1) holds the viewer "settled" value at 1 while the camera is pinned (the cuttlefish come over); -1 = leave it
+    curious(level) { fixCalm = level; },
     bench() { pin(); dev.result = null; startFlight(true); },
     flight() { pin(); startFlight(false); }, get flying() { return flying; },
     get gpu() { return F[GPU]; },
@@ -3424,7 +3508,7 @@ document.addEventListener('visibilitychange', () => { if (AC) document.hidden ? 
   // frame() moves the free camera and then calls render(): step in between and put the camera on the path instead
   const draw = render;
   render = () => {
-    if (pinned) { dynT = -Infinity; if (fixT >= 0) F[TIME] = fixT; if (fixStir >= 0) F[STIR] = fixStir; }
+    if (pinned) { dynT = -Infinity; if (fixT >= 0) F[TIME] = fixT; if (fixStir >= 0) F[STIR] = fixStir; if (fixCalm >= 0) F[CALM] = fixCalm; }
     if (flying) {
       const dtr = F[LAST] - last; last = F[LAST];
       F[FLT] += min(dtr / 1000, 0.1); flyAt();
