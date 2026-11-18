@@ -1281,7 +1281,7 @@ fn irid(x: f32) -> vec3f { return .5 + .5 * cos(TAU * (vec3f(0., .33, .67) + x))
 // Jellyfish (2026-11-18). Instance: a = home xyz + how far it drifts, b = seed, bell radius, phase, kind. Like the
 // fish, a function of time alone. The vertex's n.w says how it moves: 0 to 1 is the bell from crown to rim, below 0 a
 // hanging part down to -1 at its tip (see meshJelly). Drawn see-through after everything solid, with no depth written.
-struct JO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n: vec3f, @location(2) op: vec4f, @location(3) @interpolate(flat) sd: vec3f, @location(4) lt: f32 };
+struct JO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n: vec3f, @location(2) op: vec4f, @location(3) @interpolate(flat) sd: vec3f, @location(4) lt: f32, @location(5) @interpolate(flat) vw: f32 };
 // How much of its own light a jellyfish gives off. A fifth in daylight (2026-11-18): at full strength every one was
 // equally bright in sun and in shade, which made them look laid over the picture. The night dive should raise this.
 const JGLOW = .2;
@@ -1290,63 +1290,90 @@ const JGLOW = .2;
   let t = g.cam.w; let R = i.a.w; let s = i.b.x; let sz = i.b.y; let ph = i.b.z;
   // the pulse: slower for a bigger bell; a quick squeeze and a slow opening
   let pp = t * (2.6 / (.5 + sz)) + ph * TAU; let sq = pow(.5 + .5 * sin(pp), 3.);
-  // Each squeeze throws it upward by nearly half a bell radius, quickly (the first quarter of the pulse); it settles
-  // back over the rest. (Until 2026-11-18 this was a symmetric bob of .14 of the radius, too small to see.)
-  let th = fract((pp - .3) / TAU); let lift = .45 * sz * (ss(0., .25, th) - ss(.25, 1., th));
+  // Each squeeze throws it upward by a little over half a bell radius, quickly (the first quarter of the pulse); it
+  // settles back over the rest. (Until 2026-11-18 this was a symmetric bob of .14 of the radius, too small to see; .45
+  // was "about right, maybe very slightly not enough".)
+  let th = fract((pp - .3) / TAU); let lift = .55 * sz * (ss(0., .25, th) - ss(.25, 1., th));
   // drifting round its home, rising and sinking over minutes, with the thrust of each pulse on top
   var P = i.a.xyz + vec3f(R * cos(t * .03 + ph * 5.), 1.5 * sin(t * .05 + ph * 9.) + lift, R * sin(t * .027 + ph * 7.));
   // the viewer eases it aside, and it never sits on the lens
   { let dv = P - g.cam.xyz; let lv = length(dv); let rv = 2. + sz; P += dv / max(lv, .01) * (1.6 * exp(-lv * lv / (rv * rv)) + max(sz + .9 - lv, 0.)); }
   // beyond 110 m the water hides it: put it outside the view so nothing is drawn for it
   if (distance(P, g.cam.xyz) > 110.) { o.cp = vec4f(2., 2., 2., 1.); return o; }
-  // nearly upright, leaning a little this way and that
-  let Up = normalize(vec3f(.16 * sin(t * .2 + s * 30.), 1., .16 * cos(t * .17 + s * 17.)));
+  // leaning this way and that, each in its own time, so a swarm is not a row of identical upright bells
+  let Up = normalize(vec3f(.3 * sin(t * .2 + s * 30.), 1., .3 * cos(t * .17 + s * 17.)));
   let X = normalize(cross(Up, vec3f(0., 0., 1.))); let Z = cross(X, Up);
-  let au = i.n.w; var l = i.p;
+  let au = i.n.w; var l = i.p; var nl = i.n.xyz;
   if (au >= 0.) { // the bell: the rim pulls in and the dome lengthens
     let k = au * au; l.x *= 1. - .3 * sq * k; l.z *= 1. - .3 * sq * k; l.y += .12 * sq * k;
+    // make the normal point out of the bell whichever way the triangle was wound, so fsJelly can tell the wall
+    // nearer the viewer from the one further away
+    if (dot(nl, i.p - vec3f(0., .1, 0.)) < 0.) { nl = -nl; }
   } else { // hanging parts: gathered in at the root with the rim, swaying more toward the tip, following each pulse late
     let d = -au; let k = 1. - d;
-    l.x = l.x * (1. - .3 * sq * k) + sin(t * .9 + d * 4. + s * 31. + i.p.z * 5.) * .28 * d * d;
-    l.z = l.z * (1. - .3 * sq * k) + cos(t * .8 + d * 4.6 + s * 17. + i.p.x * 5.) * .28 * d * d;
+    // each jellyfish's tentacles also trail off to one side of its own, so they do not hang like plumb lines
+    let tr = vec2f(cos(s * 40.), sin(s * 40.)) * .55 * d * d;
+    l.x = l.x * (1. - .3 * sq * k) + sin(t * .9 + d * 4. + s * 31. + i.p.z * 5.) * .34 * d * d + tr.x;
+    l.z = l.z * (1. - .3 * sq * k) + cos(t * .8 + d * 4.6 + s * 17. + i.p.x * 5.) * .34 * d * d + tr.y;
     l.y += .22 * sin(pp - 1.2 - d * 2.5) * d;
   }
   let w = P + (X * l.x + Up * l.y + Z * l.z) * sz;
-  o.cp = g.vp * vec4f(w, 1.); o.wp = w; o.n = X * i.n.x + Up * i.n.y + Z * i.n.z; o.op = vec4f(i.p, au); o.sd = vec3f(s, i.b.w, sq);
+  o.cp = g.vp * vec4f(w, 1.); o.wp = w; o.n = X * nl.x + Up * nl.y + Z * nl.z; o.op = vec4f(i.p, au); o.sd = vec3f(s, i.b.w, sq);
   o.lt = shadow1(w); // in the shadow of a cliff or of kelp it goes dark, like the fish
+  o.vw = dot(normalize(g.cam.xyz - P), Up); // where the viewer is: +1 straight above the bell, -1 straight below
   return o;
 }
 @fragment fn fsJelly(i: JO) -> @location(0) vec4f {
-  let V = normalize(g.cam.xyz - i.wp); let L = g.sun.xyz;
-  let ca = caus2(i.wp, distance(g.cam.xyz, i.wp)); // the same rippling light that plays over everything else
-  let n0 = normalize(i.n); // which way the surface really faces, for the sun: the crown of the bell faces up
-  var n = n0; if (dot(n, V) < 0.) { n = -n; }
+  let V = normalize(g.cam.xyz - i.wp); let L = g.sun.xyz; let dist = distance(g.cam.xyz, i.wp);
+  // the same rippling light that plays over everything else: the coarse pattern, and the fine one rock gets (a bell is
+  // smaller than the coarse pattern, so only the fine one can show on it)
+  let ca = caus2(i.wp, dist); let cf = caus(i.wp, dist);
+  let n0 = normalize(i.n); // out of the bell (see vsJelly): the crown faces up, and the wall away from the viewer faces away
+  let away = dot(n0, V) < 0.;
+  var n = n0; if (away) { n = -n; }
   let ndv = sat(dot(n, V)); let fr = pow(1. - ndv, 2.); // a membrane: thin seen face-on, denser toward its edges
   let au = i.op.w; let s = i.sd.x; let sq = i.sd.z;
+  // the membrane under the dome lies inside the dome's own outline (the dome is x2 + (y / .7)2 + z2 = 1)
+  let mem = au >= 0. && dot(i.op.xz, i.op.xz) + i.op.y * i.op.y / .49 < .9;
   var col = vec3f(.35, .75, 1.); var glow = vec3f(.2, .8, 1.);
   if (i.sd.y > .5) { col = vec3f(1., .45, .75); glow = vec3f(1., .35, .8); }
   if (i.sd.y > 1.5) { col = vec3f(1., .7, .3); glow = vec3f(1., .55, .15); }
   if (i.sd.y > 2.5) { col = vec3f(.65, .45, 1.); glow = vec3f(.6, .4, 1.); }
-  var a = 0.; var emi = vec3f(0.);
+  var a = 0.; var emi = vec3f(0.); var thick = 0.;
   if (au >= 0.) { // the bell: sixteen canals from crown to rim that brighten with each squeeze, and a ring of lights
     let ang = atan2(i.op.z, i.op.x);
     let rib = ss(.75, 1., .5 + .5 * cos(ang * 16.)) * ss(.15, .9, au); let rim = ss(.86, 1., au);
     let dots = rim * ss(.6, .95, .5 + .5 * cos(ang * 32.));
     // Thick jelly (2026-11-18): clearest looked straight through, milky toward the edge of the dome, so it dims what is
     // behind it and has some body. It was .12 + .5 * fr, thin enough that rock showed through sharp, only tinted.
-    let thick = pow(1. - ndv, 1.5);
-    a = .22 + .68 * thick + .2 * rib + .3 * rim; col = mix(col, vec3f(1.), .25 * thick);
+    thick = pow(1. - ndv, 1.5);
+    a = .3 + .7 * thick + .2 * rib + .3 * rim; col = mix(col, vec3f(1.), .25 * thick);
     emi = glow * (.14 + .7 * rib * (.4 + .6 * sq) + 1.4 * dots * (.5 + .5 * sin(g.cam.w * 2. + ang * 3. + s * 40.)) + .35 * fr);
-  } else { // hanging parts thin out toward their tips
-    let d = -au; a = .7 * (1. - .5 * d); emi = glow * (.15 + .25 * (1. - d));
+    // One wall, not three layers (2026-11-18). Both walls of the dome and the membrane used to be blended at full
+    // strength, which evened out the clear middle and milky edge and showed as two nested outlines. Now the wall nearer
+    // the viewer counts in full; the far wall is faint, unless the viewer is underneath looking up into the bell, where
+    // it is the only wall there is; and the membrane is always faint.
+    if (mem) { a = .08 + .14 * thick; emi *= .3; }
+    else if (away) { a *= mix(.35, 1., ss(.1, -.5, i.vw)); }
+  } else { // hanging parts: the frilled arms thin out toward their tips; the thin tentacles (out at the rim) fade to nothing
+    let d = -au;
+    a = select(.75 * (1. - .5 * d), .8 * (1. - d) * (1. - .3 * d), dot(i.op.xz, i.op.xz) > .5);
+    emi = glow * (.15 + .25 * (1. - d));
   }
   let z = zone(i.wp); let vv = vol(i.wp); let ndl = dot(n0, L);
   // Lit by the scene (2026-11-18): the sun reaches it only out of shadow and carries the ripple; the side toward the
   // sun is brightest, with some light coming through from behind; the underside and the hanging parts are dimmer; the
   // skylight is cut near walls and in enclosed places, as for the fish. Its own light is a small addition.
-  let E = sunE(i.wp.y, z) * i.lt * (.5 + .5 * ca);
+  // On the up-facing part of the bell the fine ripple shows as moving dapples.
+  let E = sunE(i.wp.y, z) * i.lt;
+  let dap = mix(vec3f(.5 + .5 * ca), .3 + cf * 1.2, sat(n0.y) * f32(au >= 0.));
   let dim = select(mix(1., .7, au), .6, au < 0.);
-  var c = col * (E * (.2 + .6 * sat(ndl) + .25 * sat(-ndl)) * dim + amb(i.wp, n, vv.g, z) * (.3 + .6 * sat((vv.r - .5) * 2.7)) * 1.2) + emi * JGLOW;
+  var c = col * (E * dap * (.2 + .6 * sat(ndl) + .25 * sat(-ndl)) * dim + amb(i.wp, n, vv.g, z) * (.3 + .6 * sat((vv.r - .5) * 2.7)) * 1.2) + emi * JGLOW;
+  // a wet highlight on the wall facing the viewer, and sunlight glowing through the thick edge of the dome, strongest
+  // when looking toward the sun
+  if (au >= 0. && !mem) {
+    c += E * (.5 + .5 * ca) * (pow(sat(dot(n, normalize(V + L))), 60.) * 1.4 * f32(!away) + col * thick * (.12 + .65 * pow(sat(dot(-V, L)), 2.)));
+  }
   a = sat(a);
   return vec4f(min(fog(c, i.wp, z), vec3f(40.)) * a, a); // premultiplied for the blend
 }
@@ -2404,15 +2431,15 @@ function meshFishKind(H, W, fins, pec = 0.16, R = 12) {
 // bell, crown to rim, which squeezes in with each pulse; below 0 is a hanging part, down to -1 at its tip, which sways
 // and follows the bell late.
 function meshJelly() {
-  const m = new Mesh(), SEG = 28, bell = [], under = [];
+  const m = new Mesh(), SEG = 48, RINGS = 14, bell = [], under = []; // 28 by 9 showed its corners on the big bells
   const ring = (r, y, aux, scallop) => { const a = []; for (let s = 0; s < SEG; s++) { const an = s / SEG * TAU, rr2 = r * (1 + scallop * cos(an * 8)); a.push(m.v(cos(an) * rr2, y, sin(an) * rr2, aux)); } return a; };
   const skin = (rings) => { for (let k = 0; k < rings.length - 1; k++) for (let s = 0; s < SEG; s++) { const s2 = (s + 1) % SEG; m.quad(rings[k][s], rings[k][s2], rings[k + 1][s2], rings[k + 1][s]); } };
   // the dome: a flattened hemisphere that curls in slightly at the rim, which is scalloped
-  for (let k = 1; k <= 9; k++) { const ph = k / 9 * PI * 0.57; bell.push(ring(sin(ph), cos(ph) * 0.7, k / 9, k > 7 ? 0.04 : 0)); }
+  for (let k = 1; k <= RINGS; k++) { const ph = k / RINGS * PI * 0.57; bell.push(ring(sin(ph), cos(ph) * 0.7, k / RINGS, k > RINGS - 3 ? 0.04 * (k - RINGS + 3) / 3 : 0)); }
   const top = m.v(0, 0.7, 0, 0); for (let s = 0; s < SEG; s++) m.tri(top, bell[0][(s + 1) % SEG], bell[0][s]);
   skin(bell);
   // the membrane underneath, from the rim back up to a point inside the dome
-  under.push(bell[8]); for (let k = 1; k <= 4; k++) under.push(ring(0.97 * (1 - k / 4.6), -0.155 + 0.5 * sin(k / 4 * PI * 0.5), 1 - k / 5, 0));
+  under.push(bell[RINGS - 1]); for (let k = 1; k <= 4; k++) under.push(ring(0.97 * (1 - k / 4.6), -0.155 + 0.5 * sin(k / 4 * PI * 0.5), 1 - k / 5, 0));
   skin(under);
   // four frilled arms from the middle: ribbons that narrow toward the tip
   for (let j = 0; j < 4; j++) {

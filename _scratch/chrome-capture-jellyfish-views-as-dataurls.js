@@ -17,7 +17,7 @@ async () => {
   const rate = (o) => 2.6 / (0.5 + J[o + 5]);
   // the thrust of each pulse, as in vsJelly: a quick rise over the first quarter of the pulse, a slow settle after
   const S = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); }, TH = (pp) => (((pp - 0.3) / 6.2831853) % 1 + 1) % 1;
-  const at = (o, t) => { const R = J[o + 3], sz = J[o + 5], ph = J[o + 6], pp = t * rate(o) + ph * 6.2831853; return [J[o] + R * Math.cos(t * 0.03 + ph * 5), J[o + 1] + 1.5 * Math.sin(t * 0.05 + ph * 9) + 0.45 * sz * (S(0, 0.25, TH(pp)) - S(0.25, 1, TH(pp))), J[o + 2] + R * Math.sin(t * 0.027 + ph * 7)]; };
+  const at = (o, t) => { const R = J[o + 3], sz = J[o + 5], ph = J[o + 6], pp = t * rate(o) + ph * 6.2831853; return [J[o] + R * Math.cos(t * 0.03 + ph * 5), J[o + 1] + 1.5 * Math.sin(t * 0.05 + ph * 9) + 0.55 * sz * (S(0, 0.25, TH(pp)) - S(0.25, 1, TH(pp))), J[o + 2] + R * Math.sin(t * 0.027 + ph * 7)]; };
   if (!N) return out;
   let near = 0, big = 0; const T = 20;
   for (let i = 0; i < N; i++) { const o = i * 8; out.kinds[J[o + 7]]++; if (Math.hypot(J[o], J[o + 2]) < Math.hypot(J[near], J[near + 2])) near = o; if (J[o + 5] > J[big + 5]) big = o; }

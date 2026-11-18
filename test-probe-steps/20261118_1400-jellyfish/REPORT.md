@@ -148,3 +148,38 @@ opaque); not seen in motion. A second blind critic was started on the same ten v
 
 What a see-through surface cannot do here: soften or bend what is behind it. That would need a copy of the picture to
 read from while drawing, which this renderer does not keep.
+
+## A batch of improvements (2026-11-18, about 15:25)
+
+Owner, after looking at the thrust and the denser bell: thrust "about right, maybe even very slightly not enough";
+the bell "better, could be slightly more solid still"; "the dome is made of vertices, not a curve"; the arms look
+"quite well". Then: "commit and blaze on with multiple improvements as you wish". So the one-factor rule is lifted and
+these went in together.
+
+| Change | Where | Why |
+|---|---|---|
+| Thrust .45 to .55 of the bell radius | `vsJelly` | owner |
+| Bell opacity `.3 + .7 * thick` (was `.22 + .68`) | `fsJelly` | owner |
+| Dome from 48 segments and 14 rings (was 28 and 9), about 2,050 triangles | `meshJelly` | owner: visible corners |
+| The wall nearer the viewer in full; the far wall at 35%, except seen from underneath; the membrane always faint | `fsJelly` (`away`, `mem`, `vw`), with the normal turned to point out of the bell in `vsJelly` | three blended layers evened out the opacity and showed as two nested outlines (both critics) |
+| Fine ripple as dapples on the up-facing part of the bell | `fsJelly` (`cf`, `dap`) | the coarse ripple is wider than a bell (second critic: "no dappled light patches on any bell") |
+| A wet highlight on the near wall; sunlight glowing through the thick edge, strongest looking toward the sun | `fsJelly` | second critic: "a visibly brighter sun side with a glowing rim" |
+| Thin tentacles fade to nothing at the tip and each jellyfish's trail off to a side of its own; sway .28 to .34 | both | critics: plumb-line tentacles, stray lines from jellyfish out of frame |
+| Lean .16 to .3 | `vsJelly` | critics: every one bell-up and level |
+
+Left alone: the frilled arms (the owner likes them; both critics found them flat and rectangular), the colours, the
+swarms.
+
+Checks: loads with no console errors. Same fifteen views before and after (`critic-set-after-translucency/` against
+`critic-set-after-batch/`, pairs in `before-after-batch/`); looked at three pairs and the six-moment strip
+(`thrust-six-moments/strip.jpg`):
+- the big amber bell is one smooth dome, the second hard outline is gone, the thick edge catches the light;
+- over the shaded wall the bells lean at different angles and each has a lit upper edge;
+- the strip shows a highlight on the crown, the lean changing from frame to frame, tentacles curving and fading, and
+  0.40 m of rise at the top of the thrust for a bell of radius 0.62 m (formula: 0, 0.29, 0.40, 0.35, 0.28, 0.21).
+- First attempt at the rim glow was nearly white on the big bell's edge; reduced from `.2 + .9` to `.12 + .65`.
+
+Not done: no critic on this build; not benchmarked (the fine ripple is three more texture lookups per jellyfish pixel,
+and the dome has about 1.7 times the triangles); not seen in motion by Claude; Low and Medium detail not loaded.
+Still open from the critics: jellyfish cast no shadow; the frilled arms as flat panels.
+`index.html`: 132,099 bytes.

@@ -201,3 +201,11 @@ shader (cover with no extra geometry), small reef-hugging fish that stay close t
   walls of the bell plus the membrane) flatten both the opacity profile and any lit side. Next single factor proposed:
   draw only the near wall of the bell and make the membrane faint. Waiting for the owner's own look at the thrust and
   the denser bell first.
+- 2026-11-18: the owner looked at the thrust ("about right, maybe even very slightly not enough"), the denser bell
+  ("better, could be slightly more solid still") and a big bell ("arms look quite well, the dome is made of vertices")
+  and said: "commit and blaze on with multiple improvements as you wish". The one-factor rule is lifted. A batch on
+  the jellyfish followed and was committed locally: stronger thrust, denser bell, a 48-segment dome, the near wall of
+  the bell in full with the far wall and membrane faint, fine dapples, a wet highlight, a glowing rim, tentacles that
+  fade and curve, more lean. Details at the end of the jellyfish REPORT. Not yet seen by the owner or a critic.
+- Next, in order: the night dive (agreed third step); then from the critics, the golden hunters' flat shading (three
+  reviewers); jellyfish that cast shadows; then the owner's backlog (caustic pattern, curious cuttlefish, waves).

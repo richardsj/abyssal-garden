@@ -845,15 +845,15 @@ function meshFishKind(H, W, fins, pec = 0.16, R = 12) {
 // bell, crown to rim, which squeezes in with each pulse; below 0 is a hanging part, down to -1 at its tip, which sways
 // and follows the bell late.
 function meshJelly() {
-  const m = new Mesh(), SEG = 28, bell = [], under = [];
+  const m = new Mesh(), SEG = 48, RINGS = 14, bell = [], under = []; // 28 by 9 showed its corners on the big bells
   const ring = (r, y, aux, scallop) => { const a = []; for (let s = 0; s < SEG; s++) { const an = s / SEG * TAU, rr2 = r * (1 + scallop * cos(an * 8)); a.push(m.v(cos(an) * rr2, y, sin(an) * rr2, aux)); } return a; };
   const skin = (rings) => { for (let k = 0; k < rings.length - 1; k++) for (let s = 0; s < SEG; s++) { const s2 = (s + 1) % SEG; m.quad(rings[k][s], rings[k][s2], rings[k + 1][s2], rings[k + 1][s]); } };
   // the dome: a flattened hemisphere that curls in slightly at the rim, which is scalloped
-  for (let k = 1; k <= 9; k++) { const ph = k / 9 * PI * 0.57; bell.push(ring(sin(ph), cos(ph) * 0.7, k / 9, k > 7 ? 0.04 : 0)); }
+  for (let k = 1; k <= RINGS; k++) { const ph = k / RINGS * PI * 0.57; bell.push(ring(sin(ph), cos(ph) * 0.7, k / RINGS, k > RINGS - 3 ? 0.04 * (k - RINGS + 3) / 3 : 0)); }
   const top = m.v(0, 0.7, 0, 0); for (let s = 0; s < SEG; s++) m.tri(top, bell[0][(s + 1) % SEG], bell[0][s]);
   skin(bell);
   // the membrane underneath, from the rim back up to a point inside the dome
-  under.push(bell[8]); for (let k = 1; k <= 4; k++) under.push(ring(0.97 * (1 - k / 4.6), -0.155 + 0.5 * sin(k / 4 * PI * 0.5), 1 - k / 5, 0));
+  under.push(bell[RINGS - 1]); for (let k = 1; k <= 4; k++) under.push(ring(0.97 * (1 - k / 4.6), -0.155 + 0.5 * sin(k / 4 * PI * 0.5), 1 - k / 5, 0));
   skin(under);
   // four frilled arms from the middle: ribbons that narrow toward the tip
   for (let j = 0; j < 4; j++) {
